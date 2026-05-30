@@ -6,10 +6,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,21 +27,7 @@ public class UserController {
 
     @PostMapping
     public User createUser(@RequestBody User user) {
-
-        boolean isEmailMissing = user.getEmail() == null || user.getEmail().isBlank();
-        if (isEmailMissing) {
-            throw new ConditionsNotMetException("Имейл должен быть указан");
-        }
-
-        boolean isLoginMissing = user.getLogin() == null || user.getLogin().isBlank();
-        if (isLoginMissing) {
-            throw new ConditionsNotMetException("Логин должен быть указан");
-        }
-
-        boolean isNameMissing = user.getName() == null || user.getName().isBlank();
-        if (isNameMissing) {
-            throw new ConditionsNotMetException("Имя должно быть указано");
-        }
+        validateAndNormalizeUser(user);
 
         user.setId(getNextId());
         users.put(user.getId(), user);
@@ -57,34 +44,45 @@ public class UserController {
     }
 
     @PutMapping
-    public User updateUser(@RequestBody User newUser) {
-        if (newUser.getId() <= 0) {
-            throw new ConditionsNotMetException("Id должен быть указан");
+    public User updateUser(@RequestBody User user) {
+        if (user.getId() <= 0) {
+            throw new ValidationException("Id должен быть указан");
         }
 
-        if (!users.containsKey(newUser.getId())) {
-            throw new NotFoundException("Пользователь с id = " + newUser.getId() + " не найден");
+        if (!users.containsKey(user.getId())) {
+            throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
+        }
+        validateAndNormalizeUser(user);
+
+        users.put(user.getId(), user);
+        return user;
+    }
+
+    private void validateAndNormalizeUser(User user) {
+
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new ValidationException("Электронная почта не может быть пустой");
         }
 
-        User oldUser = users.get(newUser.getId());
-
-        if (newUser.getEmail() != null) {
-            oldUser.setEmail(newUser.getEmail());
+        if (!user.getEmail().contains("@")) {
+            throw new ValidationException("Некорректный формат имейл");
         }
 
-        if (newUser.getLogin() != null) {
-            oldUser.setLogin(newUser.getLogin());
+        if (user.getLogin() == null || user.getLogin().isBlank()) {
+            throw new ValidationException("Логин не может быть пустым");
         }
 
-        if (newUser.getName() != null) {
-            oldUser.setName(newUser.getName());
+        if (user.getLogin().chars().anyMatch(Character::isWhitespace)) {
+            throw new ValidationException("Логин не может содержать пробелы");
         }
 
-        if (newUser.getBirthday() != null) {
-            oldUser.setBirthday(newUser.getBirthday());
+        if (user.getName() == null || user.getName().isBlank()) {
+            user.setName(user.getLogin());
         }
 
-        return oldUser;
+        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
+            throw new ValidationException("Дата рождения не может быть в будущем");
+        }
     }
 
 }
