@@ -1,5 +1,6 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,9 +13,6 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
-import jakarta.validation.Valid;
-
-import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +31,7 @@ public class UserController {
 
     @PostMapping
     public User createUser(@Valid @RequestBody User user) {
-        validateAndNormalizeUser(user);
+        normalizeUser(user);
 
         user.setId(getNextId());
         users.put(user.getId(), user);
@@ -61,43 +59,17 @@ public class UserController {
             log.warn("Пользователь с id = {} не найден", user.getId());
             throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
         }
-        validateAndNormalizeUser(user);
+        normalizeUser(user);
 
         users.put(user.getId(), user);
         log.info("Профиль пользователя с id = {}, login = {} обновлён", user.getId(), user.getLogin());
         return user;
     }
 
-    private void validateAndNormalizeUser(User user) {
-
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
-            log.warn("Электронная почта не указана");
-            throw new ValidationException("Электронная почта не может быть пустой");
-        }
-
-        if (!user.getEmail().contains("@")) {
-            log.warn("Некорректный формат электронной почты: {}", user.getEmail());
-            throw new ValidationException("Некорректный формат имейл");
-        }
-
-        if (user.getLogin() == null || user.getLogin().isBlank()) {
-            log.warn("Логин не указан");
-            throw new ValidationException("Логин не может быть пустым");
-        }
-
-        if (user.getLogin().chars().anyMatch(Character::isWhitespace)) {
-            log.warn("Логин содержит пробелы: {}", user.getLogin());
-            throw new ValidationException("Логин не может содержать пробелы");
-        }
-
+    private void normalizeUser(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
             log.info("Пустое поле name автоматически заполнено значением login : {}", user.getLogin());
-        }
-
-        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
-            log.warn("Невалидная дата рождения: {}", user.getBirthday());
-            throw new ValidationException("Дата рождения не может быть в будущем");
         }
     }
 
