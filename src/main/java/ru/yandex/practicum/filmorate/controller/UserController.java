@@ -12,6 +12,8 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
+import jakarta.validation.Valid;
+
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,7 +32,7 @@ public class UserController {
     }
 
     @PostMapping
-    public User createUser(@RequestBody User user) {
+    public User createUser(@Valid @RequestBody User user) {
         validateAndNormalizeUser(user);
 
         user.setId(getNextId());
@@ -49,8 +51,8 @@ public class UserController {
     }
 
     @PutMapping
-    public User updateUser(@RequestBody User user) {
-        if (user.getId() <= 0) {
+    public User updateUser(@Valid @RequestBody User user) {
+        if (user.getId() == null || user.getId() <= 0) {
             log.warn("Указан невалидный Id = {}", user.getId());
             throw new ValidationException("Id должен быть указан");
         }

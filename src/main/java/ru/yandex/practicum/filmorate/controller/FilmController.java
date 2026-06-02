@@ -52,7 +52,7 @@ public class FilmController {
 
     @PutMapping
     public Film updateFilm(@RequestBody Film film) {
-        if (film.getId() <= 0) {
+        if (film.getId() == null || film.getId() <= 0) {
             log.warn("Некорректный id фильма: {}", film.getId());
             throw new ValidationException("Id должен быть указан");
         }
