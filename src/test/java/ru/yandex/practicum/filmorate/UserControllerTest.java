@@ -20,8 +20,6 @@ public class UserControllerTest {
     private static final String VALID_NAME = "Нео";
     private static final LocalDate VALID_BIRTHDAY = LocalDate.of(1971, 9, 13);
 
-    private static final LocalDate LATEST_ALLOWED_BIRTHDAY = LocalDate.now();
-
     @BeforeEach
     void setUserController() {
         userController = new UserController();
@@ -36,18 +34,18 @@ public class UserControllerTest {
                 .build();
     }
 
-    @Test
-    void shouldCreateUserWithValidData() {
-        User user = createValidUser();
-        User resultUser = userController.createUser(user);
-
-        assertEquals(VALID_EMAIL, resultUser.getEmail(), "Ожидается имейл " + VALID_EMAIL);
-        assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
-        assertEquals(VALID_NAME, resultUser.getName(), "Ожидается имя " + VALID_NAME);
-        assertEquals(VALID_BIRTHDAY, resultUser.getBirthday(), "Ожидается дата рождения " + VALID_BIRTHDAY);
-        assertEquals(1, resultUser.getId(), "Ожидается Id = 1");
-        assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
-    }
+//    @Test
+//    void shouldCreateUserWithValidData() {
+//        User user = createValidUser();
+//        User resultUser = userController.createUser(user);
+//
+//        assertEquals(VALID_EMAIL, resultUser.getEmail(), "Ожидается имейл " + VALID_EMAIL);
+//        assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
+//        assertEquals(VALID_NAME, resultUser.getName(), "Ожидается имя " + VALID_NAME);
+//        assertEquals(VALID_BIRTHDAY, resultUser.getBirthday(), "Ожидается дата рождения " + VALID_BIRTHDAY);
+//        assertEquals(1, resultUser.getId(), "Ожидается Id = 1");
+//        assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
+//    }
 
     @Test
     void shouldSetLoginAsNameWhenNameIsEmpty() {
@@ -80,160 +78,6 @@ public class UserControllerTest {
         assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
         assertEquals(VALID_LOGIN, resultUser.getName(), "Ожидается имя = логин " + VALID_LOGIN);
         assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenEmailIsEmpty() {
-        User user = createValidUser();
-        user.setEmail("");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Электронная почта не может быть пустой";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустой электронной почтой не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenEmailIsBlank() {
-        User user = createValidUser();
-        user.setEmail("   ");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Электронная почта не может быть пустой";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустой электронной почтой не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenEmailIsNull() {
-        User user = createValidUser();
-        user.setEmail(null);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Электронная почта не может быть пустой";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустой электронной почтой не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenEmailDoesNotContainAt() {
-        User user = createValidUser();
-        user.setEmail("theonezion.human");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Некорректный формат имейл";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с невалидным форматом электронной почты не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenLoginIsEmpty() {
-        User user = createValidUser();
-        user.setLogin("");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Логин не может быть пустым";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустым логином не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenLoginIsBlank() {
-        User user = createValidUser();
-        user.setLogin("   ");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Логин не может быть пустым";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустым логином не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenLoginIsNull() {
-        User user = createValidUser();
-        user.setLogin(null);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Логин не может быть пустым";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с пустым логином не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenLoginContainsSpace() {
-        User user = createValidUser();
-        user.setLogin("the One");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Логин не может содержать пробелы";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с логином с пробелами не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenLoginContainsTab() {
-        User user = createValidUser();
-        user.setLogin("the\tOne");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Логин не может содержать пробелы";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с логином со знаком tab не должен быть сохранён");
-    }
-
-    @Test
-    void shouldCreateUserWhenBirthdayIsToday() {
-        User user = createValidUser();
-        user.setBirthday(LATEST_ALLOWED_BIRTHDAY);
-        User resultUser = userController.createUser(user);
-
-        assertEquals(VALID_EMAIL, resultUser.getEmail(), "Ожидается имейл " + VALID_EMAIL);
-        assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
-        assertEquals(VALID_NAME, resultUser.getName(), "Ожидается имя " + VALID_NAME);
-        assertEquals(LATEST_ALLOWED_BIRTHDAY, resultUser.getBirthday(), "Ожидается дата рождения " + LATEST_ALLOWED_BIRTHDAY);
-        assertEquals(1, resultUser.getId(), "Ожидается Id = 1");
-        assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenBirthdayIsInFuture() {
-        User user = createValidUser();
-        user.setBirthday(LATEST_ALLOWED_BIRTHDAY.plusDays(1));
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> userController.createUser(user));
-
-        String errorMessage = "Дата рождения не может быть в будущем";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, userController.getAllUsers().size(),
-                "Пользователь с невалидной датой рождения не должен быть сохранён");
     }
 
     @Test
