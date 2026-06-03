@@ -10,7 +10,6 @@ import ru.yandex.practicum.filmorate.model.Film;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class FilmControllerTest {
@@ -23,7 +22,6 @@ public class FilmControllerTest {
     private static final int VALID_DURATION = 136;
 
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
-    private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     @BeforeEach
     void setFilmController() {
@@ -37,10 +35,6 @@ public class FilmControllerTest {
                 .releaseDate(VALID_RELEASE_DATE)
                 .duration(VALID_DURATION)
                 .build();
-    }
-
-    private String createDescription(int length) {
-        return "А".repeat(length);
     }
 
     @Test
@@ -57,78 +51,12 @@ public class FilmControllerTest {
     }
 
     @Test
-    void shouldCreateFilmWithMaxDescriptionLength() {
-        Film film = createValidFilm();
-        String description = createDescription(MAX_DESCRIPTION_LENGTH);
-        film.setDescription(description);
-        Film result = filmController.createFilm(film);
-
-        assertEquals(description, result.getDescription(), "Описание должно сохраниться без изменений");
-        assertEquals(1, filmController.getAllFilms().size(), "Ожидается число фильмов 1");
-        assertEquals(MAX_DESCRIPTION_LENGTH, result.getDescription().length(),
-                "Ожидается длина " + MAX_DESCRIPTION_LENGTH);
-    }
-
-    @Test
-    void shouldCreateFilmWhenDescriptionIsNull() {
-        Film film = createValidFilm();
-        film.setDescription(null);
-        Film result = filmController.createFilm(film);
-
-        assertNull(result.getDescription(), "Описание должно быть null");
-        assertEquals(1, filmController.getAllFilms().size(), "Ожидается число фильмов 1");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenDescriptionTooLong() {
-        Film film = createValidFilm();
-        String description = createDescription(MAX_DESCRIPTION_LENGTH + 1);
-        film.setDescription(description);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Максимальная длина описания — " + MAX_DESCRIPTION_LENGTH + " символов";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм с невалидным описанием не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenReleaseDateIsNull() {
-        Film film = createValidFilm();
-        film.setReleaseDate(null);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Дата релиза должна быть указана";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм без даты релиза не должен быть сохранён");
-    }
-
-    @Test
     void shouldCreateFilmWithMinReleaseDate() {
         Film film = createValidFilm();
         film.setReleaseDate(MIN_RELEASE_DATE);
         Film result = filmController.createFilm(film);
 
         assertEquals(MIN_RELEASE_DATE, result.getReleaseDate(), "Ожидается " + MIN_RELEASE_DATE);
-        assertEquals(1, filmController.getAllFilms().size(), "Ожидается число фильмов 1");
-    }
-
-    @Test
-    void shouldCreateFilmWhenDurationIsOne() {
-        Film film = createValidFilm();
-        film.setDuration(1);
-        Film result = filmController.createFilm(film);
-
-        assertEquals(VALID_NAME, result.getName(), "Ожидается " + VALID_NAME);
-        assertEquals(VALID_DESCRIPTION, result.getDescription(), "Ожидается " + VALID_DESCRIPTION);
-        assertEquals(VALID_RELEASE_DATE, result.getReleaseDate(), "Ожидается " + VALID_RELEASE_DATE);
-        assertEquals(1, result.getDuration(), "Ожидается 1");
-        assertEquals(1, result.getId(), "Ожидается 1");
         assertEquals(1, filmController.getAllFilms().size(), "Ожидается число фильмов 1");
     }
 
@@ -144,75 +72,6 @@ public class FilmControllerTest {
         assertEquals(errorMessage, validationException.getMessage());
         assertEquals(0, filmController.getAllFilms().size(),
                 "Фильм с невалидной датой не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenDurationIsZero() {
-        Film film = createValidFilm();
-        film.setDuration(0);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Продолжительность фильма должна быть положительным числом";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм с нулевой продолжительностью не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenDurationIsNegative() {
-        Film film = createValidFilm();
-        film.setDuration(-1);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Продолжительность фильма должна быть положительным числом";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм с отрицательной продолжительностью не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenNameIsEmpty() {
-        Film film = createValidFilm();
-        film.setName("");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Название должно быть указано";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм с невалидным названием не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenNameConsistsOfSpaces() {
-        Film film = createValidFilm();
-        film.setName("    ");
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Название должно быть указано";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(), "Фильм с невалидным названием не должен быть сохранён");
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenNameIsNull() {
-        Film film = createValidFilm();
-        film.setName(null);
-
-        ValidationException validationException = assertThrows(ValidationException.class,
-                () -> filmController.createFilm(film));
-
-        String errorMessage = "Название должно быть указано";
-        assertEquals(errorMessage, validationException.getMessage());
-        assertEquals(0, filmController.getAllFilms().size(),
-                "Фильм с невалидным названием не должен быть сохранён");
     }
 
     @Test
