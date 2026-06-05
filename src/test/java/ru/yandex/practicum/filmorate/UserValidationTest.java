@@ -5,12 +5,15 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class UserValidationTest {
     private Validator validator;
@@ -49,45 +52,26 @@ public class UserValidationTest {
     private void assertHasViolation(User user, String fieldName, String message) {
         Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertTrue(
-                violations.stream()
-                        .anyMatch(violation ->
-                                fieldName.equals(violation.getPropertyPath().toString())
-                                        && message.equals(violation.getMessage())
-                        ),
-                "Ожидается ошибка валидации поля " + fieldName + ": " + message
-        );
+        assertThat(violations)
+                .as("Ожидается ошибка валидации поля '%s' с сообщением '%s'", fieldName, message)
+                .anySatisfy(violation -> {
+                    assertThat(violation.getPropertyPath().toString()).isEqualTo(fieldName);
+                    assertThat(violation.getMessage()).isEqualTo(message);
+                });
     }
 
     private void assertHasNoViolations(User user) {
         Set<ConstraintViolation<User>> violations = validator.validate(user);
 
-        assertTrue(
-                violations.isEmpty(),
-                "Ожидается отсутствие ошибок валидации"
-        );
+        assertThat(violations).as("Ожидается отсутствие ошибок валидации").isEmpty();
     }
 
-    @Test
-    void shouldHaveEmailViolationWhenEmailIsEmpty() {
+    @ParameterizedTest(name = "[{index}] invalid email = ''{0}''")
+    @NullAndEmptySource
+    @ValueSource(strings = {"    "})
+    void shouldHaveEmailViolationWhenEmailIsInvalid(String invalidEmail) {
         User user = createValidUser();
-        user.setEmail("");
-
-        assertHasViolation(user, FIELD_EMAIL, EMAIL_MUST_NOT_BE_BLANK_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveEmailViolationWhenEmailIsBlank() {
-        User user = createValidUser();
-        user.setEmail("   ");
-
-        assertHasViolation(user, FIELD_EMAIL, EMAIL_MUST_NOT_BE_BLANK_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveEmailViolationWhenEmailIsNull() {
-        User user = createValidUser();
-        user.setEmail(null);
+        user.setEmail(invalidEmail);
 
         assertHasViolation(user, FIELD_EMAIL, EMAIL_MUST_NOT_BE_BLANK_MESSAGE);
     }
@@ -100,42 +84,21 @@ public class UserValidationTest {
         assertHasViolation(user, FIELD_EMAIL, EMAIL_FORMAT_MESSAGE);
     }
 
-    @Test
-    void shouldHaveLoginViolationWhenLoginIsEmpty() {
+    @ParameterizedTest(name = "[{index}] invalid login = ''{0}''")
+    @NullAndEmptySource
+    @ValueSource(strings = {"    "})
+    void shouldHaveLoginViolationWhenLoginIsInvalid(String invalidLogin) {
         User user = createValidUser();
-        user.setLogin("");
+        user.setLogin(invalidLogin);
 
         assertHasViolation(user, FIELD_LOGIN, LOGIN_MUST_NOT_BE_BLANK_MESSAGE);
     }
 
-    @Test
-    void shouldHaveLoginViolationWhenLoginIsBlank() {
+    @ParameterizedTest(name = "[{index}] invalid login = ''{0}''")
+    @ValueSource(strings = {"the One", "the\tOne"})
+    void shouldHaveLoginViolationWhenLoginContainsSpaces(String invalidLogin) {
         User user = createValidUser();
-        user.setLogin("   ");
-
-        assertHasViolation(user, FIELD_LOGIN, LOGIN_MUST_NOT_BE_BLANK_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveLoginViolationWhenLoginIsNull() {
-        User user = createValidUser();
-        user.setLogin(null);
-
-        assertHasViolation(user, FIELD_LOGIN, LOGIN_MUST_NOT_BE_BLANK_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveLoginViolationWhenLoginContainsSpace() {
-        User user = createValidUser();
-        user.setLogin("the One");
-
-        assertHasViolation(user, FIELD_LOGIN, LOGIN_MUST_NOT_CONTAIN_SPACES_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveLoginViolationWhenLoginContainsTab() {
-        User user = createValidUser();
-        user.setLogin("the\tOne");
+        user.setLogin(invalidLogin);
 
         assertHasViolation(user, FIELD_LOGIN, LOGIN_MUST_NOT_CONTAIN_SPACES_MESSAGE);
     }

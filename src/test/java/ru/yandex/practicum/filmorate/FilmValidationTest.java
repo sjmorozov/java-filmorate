@@ -5,12 +5,16 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.time.LocalDate;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class FilmValidationTest {
     private Validator validator;
@@ -49,47 +53,31 @@ public class FilmValidationTest {
     private void assertHasViolation(Film film, String fieldName, String message) {
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertTrue(
-                violations.stream()
-                        .anyMatch(violation ->
-                                fieldName.equals(violation.getPropertyPath().toString())
-                                        && message.equals(violation.getMessage())
-                        ),
-                "Ожидается ошибка валидации поля " + fieldName + ": " + message
-        );
+        assertThat(violations)
+                .as("Ожидается ошибка валидации поля '%s' с сообщением '%s'", fieldName, message)
+                .anySatisfy(violation -> {
+                    assertThat(violation.getPropertyPath().toString()).isEqualTo(fieldName);
+                    assertThat(violation.getMessage()).isEqualTo(message);
+                });
     }
 
     private void assertHasNoViolations(Film film) {
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
 
-        assertTrue(
-                violations.isEmpty(),
-                "Ожидается отсутствие ошибок валидации"
-        );
+        assertThat(violations).as("Ожидается отсутствие ошибок валидации").isEmpty();
     }
 
     private String createDescription(int length) {
         return "А".repeat(length);
     }
 
-    @Test
-    void shouldHaveNameViolationWhenNameIsEmpty() {
+    @ParameterizedTest(name = "[{index}] invalid name = ''{0}''")
+    @NullAndEmptySource
+    @ValueSource(strings = {"    "})
+    void shouldHaveNameViolationWhenNameIsInvalid(String invalidName) {
         Film film = createValidFilm();
-        film.setName("");
-        assertHasViolation(film, FIELD_NAME, NAME_MUST_NOT_BE_BLANK_MESSAGE);
-    }
+        film.setName(invalidName);
 
-    @Test
-    void shouldHaveNameViolationWhenNameConsistsOfSpaces() {
-        Film film = createValidFilm();
-        film.setName("    ");
-        assertHasViolation(film, FIELD_NAME, NAME_MUST_NOT_BE_BLANK_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveNameViolationWhenNameIsNull() {
-        Film film = createValidFilm();
-        film.setName(null);
         assertHasViolation(film, FIELD_NAME, NAME_MUST_NOT_BE_BLANK_MESSAGE);
     }
 
@@ -130,24 +118,12 @@ public class FilmValidationTest {
         assertHasViolation(film, FIELD_DURATION, DURATION_MUST_BE_POSITIVE_MESSAGE);
     }
 
-    @Test
-    void shouldHaveDurationViolationWhenDurationIsNegative() {
+    @ParameterizedTest(name = "[{index}] invalid duration = {0}")
+    @NullSource
+    @ValueSource(ints = {0, -1})
+    void shouldHaveDurationViolationWhenDurationIsInvalid(Integer duration) {
         Film film = createValidFilm();
-        film.setDuration(-1);
-        assertHasViolation(film, FIELD_DURATION, DURATION_MUST_BE_POSITIVE_MESSAGE);
-    }
-
-    @Test
-    void shouldHaveNoViolationsWhenDurationIsOne() {
-        Film film = createValidFilm();
-        film.setDuration(1);
-        assertHasNoViolations(film);
-    }
-
-    @Test
-    void shouldHaveDurationViolationWhenDurationIsNull() {
-        Film film = createValidFilm();
-        film.setDuration(null);
+        film.setDuration(duration);
         assertHasViolation(film, FIELD_DURATION, DURATION_MUST_BE_POSITIVE_MESSAGE);
     }
 }
