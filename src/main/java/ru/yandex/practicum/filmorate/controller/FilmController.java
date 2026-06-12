@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.yandex.practicum.filmorate.model.Film;
@@ -20,6 +21,8 @@ import java.util.Collection;
 @RestController
 @RequestMapping("/films")
 public class FilmController {
+
+    private static final String DEFAULT_POPULAR_FILMS_COUNT = "10";
 
     private final FilmService filmService;
 
@@ -44,6 +47,11 @@ public class FilmController {
         filmService.deleteFilm(id);
     }
 
+    @GetMapping("/popular")
+    public Collection<Film> getPopularFilms(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT) int count) {
+        return filmService.getPopularFilms(count);
+    }
+
     @GetMapping("/{id}")
     public Film findFilmById(@PathVariable Long id) {
         return filmService.findFilmById(id);
@@ -52,5 +60,16 @@ public class FilmController {
     @GetMapping
     public Collection<Film> getAllFilms() {
         return filmService.getAllFilms();
+    }
+
+    @PutMapping("/{id}/like/{userId}")
+    public void likeFilm(@PathVariable Long id, @PathVariable Long userId) {
+        filmService.likeFilm(id, userId);
+    }
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{id}/like/{userId}")
+    public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
+        filmService.deleteLike(id, userId);
     }
 }

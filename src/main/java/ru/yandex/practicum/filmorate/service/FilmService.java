@@ -5,10 +5,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -17,10 +21,12 @@ public class FilmService {
     private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     private final FilmStorage filmStorage;
+    private final UserStorage userStorage;
 
     @Autowired
-    public FilmService(FilmStorage filmStorage) {
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
         this.filmStorage = filmStorage;
+        this.userStorage = userStorage;
     }
 
     public Film createFilm(Film film) {
@@ -33,10 +39,7 @@ public class FilmService {
     }
 
     public Film updateFilm(Film film) {
-        if (film.getId() == null || film.getId() <= 0) {
-            log.warn("Некорректный id фильма: {}", film.getId());
-            throw new ValidationException("Id должен быть указан");
-        }
+        validateId(film.getId());
 
         Film oldFilm = filmStorage.findFilmById(film.getId());
 
@@ -76,10 +79,12 @@ public class FilmService {
     }
 
     public void deleteFilm(Long id) {
+        validateId(id);
         filmStorage.deleteFilm(id);
     }
 
     public Film findFilmById(Long id) {
+        validateId(id);
         return filmStorage.findFilmById(id);
     }
 
@@ -87,11 +92,55 @@ public class FilmService {
         return filmStorage.findAllFilms();
     }
 
+    public void likeFilm(Long filmId, Long userId) {
+        validateId(filmId);
+        validateId(userId);
+
+        Film film = filmStorage.findFilmById(filmId);
+        User user = userStorage.findUserById(userId);
+
+        film.getLikes().add(userId);
+
+        Film likedFilm = filmStorage.updateFilm(film);
+        log.info("Пользователь {} поставил лайк фильму {}", user.getName(), likedFilm.getName());
+    }
+
+    public void deleteLike(Long filmId, Long userId) {
+        validateId(filmId);
+        validateId(userId);
+
+        Film film = filmStorage.findFilmById(filmId);
+        User user = userStorage.findUserById(userId);
+
+        film.getLikes().remove(userId);
+
+        Film unlikedFilm = filmStorage.updateFilm(film);
+        log.info("Пользователь {} убрал лайк с фильма {}", user.getName(), unlikedFilm.getName());
+    }
+
+    public Collection<Film> getPopularFilms(int count) {
+        if (count <= 0) {
+            throw new ValidationException("Параметр count должен быть больше нуля. Передан count = " + count);
+        }
+        Comparator<Film> likesComparator = Comparator.comparingInt(film -> film.getLikes().size());
+        return getAllFilms().stream()
+                .sorted(likesComparator.reversed())
+                .limit(count)
+                .toList();
+    }
+
     private void validateReleaseDate(LocalDate releaseDate) {
 
         if (releaseDate.isBefore(MIN_RELEASE_DATE)) {
             log.warn("Дата релиза {} раньше чем {}", releaseDate, MIN_RELEASE_DATE);
             throw new ValidationException("Дата релиза не может быть раньше " + MIN_RELEASE_DATE);
+        }
+    }
+
+    private void validateId(Long id) {
+        if (id == null || id <= 0) {
+            log.warn("Указан невалидный Id = {}", id);
+            throw new ValidationException("Id должен быть указан");
         }
     }
 }
