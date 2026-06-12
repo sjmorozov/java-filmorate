@@ -40,12 +40,12 @@ public class FilmController {
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void deleteFilm(@PathVariable Integer id) {
+    public void deleteFilm(@PathVariable Long id) {
         filmService.deleteFilm(id);
     }
 
     @GetMapping("/{id}")
-    public Film findFilmById(@PathVariable Integer id) {
+    public Film findFilmById(@PathVariable Long id) {
         return filmService.findFilmById(id);
     }
 

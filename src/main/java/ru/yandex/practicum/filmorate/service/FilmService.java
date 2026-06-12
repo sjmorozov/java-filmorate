@@ -75,11 +75,11 @@ public class FilmService {
         return updatedFilm;
     }
 
-    public void deleteFilm(Integer id) {
+    public void deleteFilm(Long id) {
         filmStorage.deleteFilm(id);
     }
 
-    public Film findFilmById(Integer id) {
+    public Film findFilmById(Long id) {
         return filmStorage.findFilmById(id);
     }
 

@@ -12,7 +12,7 @@ import java.util.Map;
 @Slf4j
 @Component
 public class InMemoryUserStorage implements UserStorage {
-    private final Map<Integer, User> users = new HashMap<>();
+    private final Map<Long, User> users = new HashMap<>();
 
     @Override
     public User addUser(User user) {
@@ -29,13 +29,13 @@ public class InMemoryUserStorage implements UserStorage {
     }
 
     @Override
-    public void deleteUser(Integer id) {
+    public void deleteUser(Long id) {
         checkUserExists(id);
         users.remove(id);
     }
 
     @Override
-    public User findUserById(Integer id) {
+    public User findUserById(Long id) {
         checkUserExists(id);
         return users.get(id);
     }
@@ -45,19 +45,19 @@ public class InMemoryUserStorage implements UserStorage {
         return users.values();
     }
 
-    private void checkUserExists(Integer id) {
+    private void checkUserExists(Long id) {
         if (!users.containsKey(id)) {
             log.warn("Пользователь с id = {} не найден", id);
             throw new NotFoundException("Пользователь с id = " + id + " не найден");
         }
     }
 
-    private int getNextId() {
-        int currentMaxId = users.keySet()
+    private Long getNextId() {
+        long currentMaxId = users.keySet()
                 .stream()
-                .mapToInt(id -> id)
+                .mapToLong(id -> id)
                 .max()
-                .orElse(0);
-        return currentMaxId + 1;
+                .orElse(0L);
+        return currentMaxId + 1L;
     }
 }

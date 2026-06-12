@@ -12,7 +12,7 @@ import java.util.Map;
 @Slf4j
 @Component
 public class InMemoryFilmStorage implements FilmStorage {
-    private final Map<Integer, Film> films = new HashMap<>();
+    private final Map<Long, Film> films = new HashMap<>();
 
     @Override
     public Film addFilm(Film film) {
@@ -29,13 +29,13 @@ public class InMemoryFilmStorage implements FilmStorage {
     }
 
     @Override
-    public void deleteFilm(Integer id) {
+    public void deleteFilm(Long id) {
         checkFilmExists(id);
         films.remove(id);
     }
 
     @Override
-    public Film findFilmById(Integer id) {
+    public Film findFilmById(Long id) {
         checkFilmExists(id);
         return films.get(id);
     }
@@ -45,19 +45,20 @@ public class InMemoryFilmStorage implements FilmStorage {
         return films.values();
     }
 
-    private void checkFilmExists(Integer id) {
+    private void checkFilmExists(Long id) {
         if (!films.containsKey(id)) {
             log.warn("Фильм с id = {} не найден", id);
             throw new NotFoundException("Фильм с id = " + id + " не найден");
         }
     }
 
-    private int getNextId() {
-        int currentMaxId = films.keySet()
+    private Long getNextId() {
+        long currentMaxId = films.keySet()
                 .stream()
-                .mapToInt(id -> id)
+                .mapToLong(id -> id)
                 .max()
-                .orElse(0);
-        return ++currentMaxId;
+                .orElse(0L);
+
+        return currentMaxId + 1L;
     }
 }
