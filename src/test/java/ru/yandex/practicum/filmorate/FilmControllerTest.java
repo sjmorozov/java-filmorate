@@ -6,6 +6,11 @@ import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 
@@ -25,7 +30,10 @@ public class FilmControllerTest {
 
     @BeforeEach
     void setFilmController() {
-        filmController = new FilmController();
+        FilmStorage filmStorage = new InMemoryFilmStorage();
+        UserStorage userStorage = new InMemoryUserStorage();
+        FilmService filmService = new FilmService(filmStorage, userStorage);
+        filmController = new FilmController(filmService);
     }
 
     private Film createValidFilm() {
@@ -107,7 +115,7 @@ public class FilmControllerTest {
         Film film = createValidFilm();
         filmController.createFilm(film);
         Film shadowFilm = createValidFilm();
-        shadowFilm.setId(0);
+        shadowFilm.setId(0L);
 
         ValidationException validationException = assertThrows(ValidationException.class,
                 () -> filmController.updateFilm(shadowFilm));
@@ -124,7 +132,7 @@ public class FilmControllerTest {
         Film film = createValidFilm();
         filmController.createFilm(film);
         Film shadowFilm = createValidFilm();
-        shadowFilm.setId(-1);
+        shadowFilm.setId(-1L);
 
         ValidationException validationException = assertThrows(ValidationException.class,
                 () -> filmController.updateFilm(shadowFilm));
@@ -141,7 +149,7 @@ public class FilmControllerTest {
         Film film = createValidFilm();
         filmController.createFilm(film);
         Film shadowFilm = createValidFilm();
-        shadowFilm.setId(999);
+        shadowFilm.setId(999L);
 
         NotFoundException notFoundException = assertThrows(NotFoundException.class,
                 () -> filmController.updateFilm(shadowFilm));

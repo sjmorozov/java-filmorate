@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,7 @@ public class UserService {
     public User createUser(User user) {
         normalizeUser(user);
         User createdUser = userStorage.addUser(user);
-        log.info("Пользователь с id = {}, login = {} добавлен", user.getId(), user.getLogin());
+        log.info("Пользователь с id = {}, login = {} добавлен", createdUser.getId(), createdUser.getLogin());
         return createdUser;
     }
 
@@ -35,13 +36,14 @@ public class UserService {
         normalizeUser(user);
 
         User updatedUser = userStorage.updateUser(user);
-        log.info("Профиль пользователя с id = {}, login = {} обновлён", user.getId(), user.getLogin());
+        log.info("Профиль пользователя с id = {}, login = {} обновлён", updatedUser.getId(), updatedUser.getLogin());
         return updatedUser;
     }
 
     public void deleteUser(Long id) {
         validateId(id);
         userStorage.deleteUser(id);
+        log.info("Пользователь с id = {} удалён", id);
     }
 
     public User findUserById(Long id) {
@@ -121,6 +123,9 @@ public class UserService {
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
             log.info("Пустое поле name автоматически заполнено значением login : {}", user.getLogin());
+        }
+        if (user.getFriends() == null) {
+            user.setFriends(new HashSet<>());
         }
     }
 

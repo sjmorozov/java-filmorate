@@ -12,7 +12,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Set;
+import java.util.HashSet;
 
 @Slf4j
 @Service
@@ -31,6 +31,7 @@ public class FilmService {
 
     public Film createFilm(Film film) {
         validateReleaseDate(film.getReleaseDate());
+        normalizeFilm(film);
 
         Film createdFilm = filmStorage.addFilm(film);
 
@@ -81,6 +82,7 @@ public class FilmService {
     public void deleteFilm(Long id) {
         validateId(id);
         filmStorage.deleteFilm(id);
+        log.info("Фильм с id = {} удалён", id);
     }
 
     public Film findFilmById(Long id) {
@@ -141,6 +143,12 @@ public class FilmService {
         if (id == null || id <= 0) {
             log.warn("Указан невалидный Id = {}", id);
             throw new ValidationException("Id должен быть указан");
+        }
+    }
+
+    private void normalizeFilm(Film film) {
+        if (film.getLikes() == null) {
+            film.setLikes(new HashSet<>());
         }
     }
 }
