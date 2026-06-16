@@ -1,5 +1,7 @@
 package ru.yandex.practicum.filmorate.model;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -36,5 +38,6 @@ public class Film {
     private Integer duration;
 
     @Builder.Default
-    private Set<Long> likes = new HashSet<Long>();
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private Set<Long> likes = new HashSet<>();
 }

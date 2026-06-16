@@ -69,9 +69,6 @@ public class UserService {
         user.getFriends().add(friendId);
         friend.getFriends().add(userId);
 
-        userStorage.updateUser(user);
-        userStorage.updateUser(friend);
-
         log.info("Пользователь {} подружился с пользователем {}", user.getLogin(), friend.getLogin());
     }
 
@@ -88,9 +85,6 @@ public class UserService {
 
         user.getFriends().remove(friendId);
         friend.getFriends().remove(userId);
-
-        userStorage.updateUser(user);
-        userStorage.updateUser(friend);
 
         log.info("Пользователь {} удалил пользователя {} из друзей", user.getLogin(), friend.getLogin());
     }

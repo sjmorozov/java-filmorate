@@ -1,8 +1,10 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +20,8 @@ import ru.yandex.practicum.filmorate.service.FilmService;
 
 import java.util.Collection;
 
+@Validated
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/films")
 public class FilmController {
@@ -25,11 +29,6 @@ public class FilmController {
     private static final String DEFAULT_POPULAR_FILMS_COUNT = "10";
 
     private final FilmService filmService;
-
-    @Autowired
-    public FilmController(FilmService filmService) {
-        this.filmService = filmService;
-    }
 
     @PostMapping
     public Film createFilm(@Valid @RequestBody Film film) {
@@ -48,7 +47,9 @@ public class FilmController {
     }
 
     @GetMapping("/popular")
-    public Collection<Film> getPopularFilms(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT) int count) {
+    public Collection<Film> getPopularFilms(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT)
+                                            @Positive(message = "Параметр count должен быть больше нуля")
+                                            int count) {
         return filmService.getPopularFilms(count);
     }
 

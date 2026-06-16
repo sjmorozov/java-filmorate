@@ -12,7 +12,6 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 
 @Slf4j
 @Service
@@ -31,7 +30,6 @@ public class FilmService {
 
     public Film createFilm(Film film) {
         validateReleaseDate(film.getReleaseDate());
-        normalizeFilm(film);
 
         Film createdFilm = filmStorage.addFilm(film);
 
@@ -40,8 +38,6 @@ public class FilmService {
     }
 
     public Film updateFilm(Film film) {
-        validateId(film.getId());
-
         Film oldFilm = filmStorage.findFilmById(film.getId());
 
         if (film.getName() != null) {
@@ -80,13 +76,11 @@ public class FilmService {
     }
 
     public void deleteFilm(Long id) {
-        validateId(id);
         filmStorage.deleteFilm(id);
         log.info("Фильм с id = {} удалён", id);
     }
 
     public Film findFilmById(Long id) {
-        validateId(id);
         return filmStorage.findFilmById(id);
     }
 
@@ -95,8 +89,6 @@ public class FilmService {
     }
 
     public void likeFilm(Long filmId, Long userId) {
-        validateId(filmId);
-        validateId(userId);
 
         Film film = filmStorage.findFilmById(filmId);
         User user = userStorage.findUserById(userId);
@@ -108,8 +100,6 @@ public class FilmService {
     }
 
     public void deleteLike(Long filmId, Long userId) {
-        validateId(filmId);
-        validateId(userId);
 
         Film film = filmStorage.findFilmById(filmId);
         User user = userStorage.findUserById(userId);
@@ -121,9 +111,6 @@ public class FilmService {
     }
 
     public Collection<Film> getPopularFilms(int count) {
-        if (count <= 0) {
-            throw new ValidationException("Параметр count должен быть больше нуля. Передан count = " + count);
-        }
         Comparator<Film> likesComparator = Comparator.comparingInt(film -> film.getLikes().size());
         return getAllFilms().stream()
                 .sorted(likesComparator.reversed())
@@ -136,19 +123,6 @@ public class FilmService {
         if (releaseDate.isBefore(MIN_RELEASE_DATE)) {
             log.warn("Дата релиза {} раньше чем {}", releaseDate, MIN_RELEASE_DATE);
             throw new ValidationException("Дата релиза не может быть раньше " + MIN_RELEASE_DATE);
-        }
-    }
-
-    private void validateId(Long id) {
-        if (id == null || id <= 0) {
-            log.warn("Указан невалидный Id = {}", id);
-            throw new ValidationException("Id должен быть указан");
-        }
-    }
-
-    private void normalizeFilm(Film film) {
-        if (film.getLikes() == null) {
-            film.setLikes(new HashSet<>());
         }
     }
 }

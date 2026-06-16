@@ -19,14 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class FilmServiceTest {
-
     private FilmService filmService;
     private UserStorage userStorage;
 
     private static final Long NON_EXISTENT_FILM_ID = 999L;
     private static final Long NON_EXISTENT_USER_ID = 999L;
-
-    private static final String ID_REQUIRED_MESSAGE = "Id должен быть указан";
 
     private static final String VALID_NAME = "Матрица";
     private static final String VALID_DESCRIPTION = "Человек узнаёт правду о реальности и выбирает красную таблетку.";
@@ -121,10 +118,6 @@ public class FilmServiceTest {
 
     private static String userNotFoundMessage(Long id) {
         return "Пользователь с id = " + id + " не найден";
-    }
-
-    private static String invalidPopularFilmsCountMessage(int count) {
-        return "Параметр count должен быть больше нуля. Передан count = " + count;
     }
 
     @Test
@@ -222,15 +215,15 @@ public class FilmServiceTest {
     }
 
     @Test
-    void shouldThrowValidationExceptionWhenFilmIdIsZero() {
+    void shouldThrowNotFoundExceptionWhenFilmIdIsZero() {
         Film createdFilm = saveFilm(createValidFilm());
 
         Film shadowFilm = createValidFilm();
         shadowFilm.setId(0L);
 
         assertThatThrownBy(() -> filmService.updateFilm(shadowFilm))
-                .isInstanceOf(ValidationException.class)
-                .hasMessage(ID_REQUIRED_MESSAGE);
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(0L));
 
         assertThat(filmService.getAllFilms())
                 .as("Размер списка должен остаться без изменений")
@@ -241,15 +234,15 @@ public class FilmServiceTest {
     }
 
     @Test
-    void shouldThrowValidationExceptionWhenFilmIdIsNegative() {
+    void shouldThrowNotFoundExceptionWhenFilmIdIsNegative() {
         Film createdFilm = saveFilm(createValidFilm());
 
         Film shadowFilm = createValidFilm();
         shadowFilm.setId(-1L);
 
         assertThatThrownBy(() -> filmService.updateFilm(shadowFilm))
-                .isInstanceOf(ValidationException.class)
-                .hasMessage(ID_REQUIRED_MESSAGE);
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(-1L));
 
         assertThat(filmService.getAllFilms())
                 .as("Размер списка должен остаться без изменений")
@@ -381,20 +374,6 @@ public class FilmServiceTest {
         assertThat(popularFilms.get(0).getId())
                 .as("Должен вернуться самый популярный фильм")
                 .isEqualTo(secondFilm.getId());
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenPopularFilmsCountIsZero() {
-        assertThatThrownBy(() -> filmService.getPopularFilms(0))
-                .isInstanceOf(ValidationException.class)
-                .hasMessage(invalidPopularFilmsCountMessage(0));
-    }
-
-    @Test
-    void shouldThrowValidationExceptionWhenPopularFilmsCountIsNegative() {
-        assertThatThrownBy(() -> filmService.getPopularFilms(-1))
-                .isInstanceOf(ValidationException.class)
-                .hasMessage(invalidPopularFilmsCountMessage(-1));
     }
 
     @Test
