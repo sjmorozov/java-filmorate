@@ -40,4 +40,11 @@ public class Film {
     @Builder.Default
     @JsonSetter(nulls = Nulls.AS_EMPTY)
     private Set<Long> likes = new HashSet<>();
+
+    @Builder.Default
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private Set<Genre> genres = new HashSet<>();
+
+    @NotNull(message = "Рейтинг МРА должен быть указан")
+    private MpaRating mpaRating;
 }
