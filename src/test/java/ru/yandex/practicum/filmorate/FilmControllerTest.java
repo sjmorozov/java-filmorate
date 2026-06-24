@@ -6,6 +6,11 @@ import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 
@@ -13,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class FilmControllerTest {
-
     FilmController filmController;
 
     private static final String VALID_NAME = "Матрица";
@@ -25,7 +29,10 @@ public class FilmControllerTest {
 
     @BeforeEach
     void setFilmController() {
-        filmController = new FilmController();
+        FilmStorage filmStorage = new InMemoryFilmStorage();
+        UserStorage userStorage = new InMemoryUserStorage();
+        FilmService filmService = new FilmService(filmStorage, userStorage);
+        filmController = new FilmController(filmService);
     }
 
     private Film createValidFilm() {
@@ -46,7 +53,7 @@ public class FilmControllerTest {
         assertEquals(VALID_DESCRIPTION, result.getDescription(), "Ожидается " + VALID_DESCRIPTION);
         assertEquals(VALID_RELEASE_DATE, result.getReleaseDate(), "Ожидается " + VALID_RELEASE_DATE);
         assertEquals(VALID_DURATION, result.getDuration(), "Ожидается " + VALID_DURATION);
-        assertEquals(1, result.getId(), "Ожидается 1");
+        assertEquals(1L, result.getId(), "Ожидается 1");
         assertEquals(1, filmController.getAllFilms().size(), "Ожидается число фильмов 1");
     }
 
@@ -103,45 +110,48 @@ public class FilmControllerTest {
     }
 
     @Test
-    void shouldThrowValidationExceptionWhenFilmIdIsZero() {
+    void shouldThrowNotFoundExceptionWhenFilmIdIsZero() {
         Film film = createValidFilm();
         filmController.createFilm(film);
-        Film shadowFilm = createValidFilm();
-        shadowFilm.setId(0);
 
-        ValidationException validationException = assertThrows(ValidationException.class,
+        Film shadowFilm = createValidFilm();
+        shadowFilm.setId(0L);
+
+        NotFoundException notFoundException = assertThrows(NotFoundException.class,
                 () -> filmController.updateFilm(shadowFilm));
 
-        String errorMessage = "Id должен быть указан";
-        assertEquals(errorMessage, validationException.getMessage());
+        String errorMessage = "Фильм с id = 0 не найден";
+        assertEquals(errorMessage, notFoundException.getMessage());
         assertEquals(1, filmController.getAllFilms().size(),
                 "Размер списка должен остаться без изменений");
-        assertEquals(1, film.getId(), "Id фильма не должен измениться");
+        assertEquals(1L, film.getId(), "Id фильма не должен измениться");
     }
 
     @Test
-    void shouldThrowValidationExceptionWhenFilmIdIsNegative() {
+    void shouldThrowNotFoundExceptionWhenFilmIdIsNegative() {
         Film film = createValidFilm();
         filmController.createFilm(film);
-        Film shadowFilm = createValidFilm();
-        shadowFilm.setId(-1);
 
-        ValidationException validationException = assertThrows(ValidationException.class,
+        Film shadowFilm = createValidFilm();
+        shadowFilm.setId(-1L);
+
+        NotFoundException notFoundException = assertThrows(NotFoundException.class,
                 () -> filmController.updateFilm(shadowFilm));
 
-        String errorMessage = "Id должен быть указан";
-        assertEquals(errorMessage, validationException.getMessage());
+        String errorMessage = "Фильм с id = -1 не найден";
+        assertEquals(errorMessage, notFoundException.getMessage());
         assertEquals(1, filmController.getAllFilms().size(),
                 "Размер списка должен остаться без изменений");
-        assertEquals(1, film.getId(), "Id фильма не должен измениться");
+        assertEquals(1L, film.getId(), "Id фильма не должен измениться");
     }
 
     @Test
     void shouldThrowNotFoundExceptionWhenFilmDoesNotExist() {
         Film film = createValidFilm();
         filmController.createFilm(film);
+
         Film shadowFilm = createValidFilm();
-        shadowFilm.setId(999);
+        shadowFilm.setId(999L);
 
         NotFoundException notFoundException = assertThrows(NotFoundException.class,
                 () -> filmController.updateFilm(shadowFilm));
@@ -150,7 +160,7 @@ public class FilmControllerTest {
         assertEquals(errorMessage, notFoundException.getMessage());
         assertEquals(1, filmController.getAllFilms().size(),
                 "Размер списка должен остаться без изменений");
-        assertEquals(1, film.getId(), "Id фильма не должен измениться");
+        assertEquals(1L, film.getId(), "Id фильма не должен измениться");
     }
 
     @Test
@@ -167,8 +177,8 @@ public class FilmControllerTest {
 
         Film secondCreatedFilm = filmController.createFilm(secondFilm);
 
-        assertEquals(1, firstCreatedFilm.getId(), "Ожидается Id = 1");
-        assertEquals(2, secondCreatedFilm.getId(), "Ожидается Id = 2");
+        assertEquals(1L, firstCreatedFilm.getId(), "Ожидается Id = 1");
+        assertEquals(2L, secondCreatedFilm.getId(), "Ожидается Id = 2");
         assertEquals(2, filmController.getAllFilms().size(),
                 "Размер списка ожидается 2");
     }
