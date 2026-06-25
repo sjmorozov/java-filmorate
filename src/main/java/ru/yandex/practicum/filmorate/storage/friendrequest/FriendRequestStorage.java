@@ -12,6 +12,8 @@ public interface FriendRequestStorage {
 
     void deleteByRequesterIdAndRecipientId(Long requesterId, Long recipientId);
 
+    void deleteAllByUserId(Long userId);
+
     boolean existsByRequesterIdAndRecipientId(Long requesterId, Long recipientId);
 
     Set<Long> findRecipientIdsByRequesterId(Long requesterId);

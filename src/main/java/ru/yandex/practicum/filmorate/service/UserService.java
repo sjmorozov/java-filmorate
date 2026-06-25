@@ -1,10 +1,12 @@
 package ru.yandex.practicum.filmorate.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.FriendRequest;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
@@ -12,25 +14,16 @@ import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserService {
     private final UserStorage userStorage;
     private final FriendRequestStorage friendRequestStorage;
     private final FriendshipStorage friendshipStorage;
-
-    @Autowired
-    public UserService(UserStorage userStorage,
-                       FriendRequestStorage friendRequestStorage,
-                       FriendshipStorage friendshipStorage) {
-        this.userStorage = userStorage;
-        this.friendRequestStorage = friendRequestStorage;
-        this.friendshipStorage = friendshipStorage;
-    }
 
     public User createUser(User user) {
         normalizeUser(user);
@@ -52,6 +45,11 @@ public class UserService {
 
     public void deleteUser(Long id) {
         validateId(id);
+        userStorage.findUserById(id);
+
+        friendshipStorage.deleteAllByUserId(id);
+        friendRequestStorage.deleteAllByUserId(id);
+
         userStorage.deleteUser(id);
         log.info("Пользователь с id = {} удалён", id);
     }
@@ -106,16 +104,36 @@ public class UserService {
         User user = participants.user();
         User friend = participants.friend();
 
-        user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
+        if (friendshipStorage.existsByUserIds(userId, friendId)) {
+            friendshipStorage.deleteByUserIds(userId, friendId);
+            friendRequestStorage.save(FriendRequest.builder()
+                    .requesterId(friendId)
+                    .recipientId(userId)
+                    .build());
 
-        log.info("Пользователь {} удалил пользователя {} из друзей", user.getLogin(), friend.getLogin());
+            log.info("Пользователь {} удалил пользователя {} из друзей", user.getLogin(), friend.getLogin());
+            return;
+        }
+
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(userId, friendId)) {
+            friendRequestStorage.deleteByRequesterIdAndRecipientId(userId, friendId);
+            log.info("Пользователь {} отменил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
+            return;
+        }
+
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
+            friendRequestStorage.deleteByRequesterIdAndRecipientId(friendId, userId);
+            log.info("Пользователь {} отклонил заявку в друзья от пользователя {}", user.getLogin(), friend.getLogin());
+            return;
+        }
+
+        log.info("Связь между пользователями {} и {} отсутствует", user.getLogin(), friend.getLogin());
     }
 
     public Set<User> getUserFriends(Long id) {
         validateId(id);
-        User user = userStorage.findUserById(id);
-        Set<Long> friendsIds = user.getFriends();
+        userStorage.findUserById(id);
+        Set<Long> friendsIds = friendshipStorage.findFriendIdsByUserId(id);
 
         return getFriendsByIds(friendsIds);
     }
@@ -124,10 +142,11 @@ public class UserService {
         validateId(firstId);
         validateId(secondId);
 
-        User firstUser = userStorage.findUserById(firstId);
-        Set<Long> firstSetIds = firstUser.getFriends();
-        User secondUser = userStorage.findUserById(secondId);
-        Set<Long> secondSetIds = secondUser.getFriends();
+        userStorage.findUserById(firstId);
+        userStorage.findUserById(secondId);
+
+        Set<Long> firstSetIds = friendshipStorage.findFriendIdsByUserId(firstId);
+        Set<Long> secondSetIds = friendshipStorage.findFriendIdsByUserId(secondId);
 
         Set<Long> commonFriends = firstSetIds.stream()
                 .filter(secondSetIds::contains)
@@ -136,20 +155,49 @@ public class UserService {
         return getFriendsByIds(commonFriends);
     }
 
+    public FriendRelationStatusResponse getFriendRelationStatus(Long firstUserId, Long secondUserId) {
+        FriendshipParticipants participants = getFriendshipParticipants(firstUserId, secondUserId,
+                "Пользователь не может иметь связь дружбы сам с собой: id = " + firstUserId + ".");
+        User firstUser = participants.user();
+        User secondUser = participants.friend();
+
+        if (friendshipStorage.existsByUserIds(firstUserId, secondUserId)) {
+            return buildFriendRelationStatusResponse(firstUser, secondUser, FriendRelationStatus.FRIENDS,
+                    firstUser.getName() + " и " + secondUser.getName() + " являются друзьями");
+        }
+
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(firstUserId, secondUserId)) {
+            return buildFriendRelationStatusResponse(firstUser, secondUser,
+                    FriendRelationStatus.FIRST_REQUESTED_SECOND,
+                    firstUser.getName() + " отправил заявку в друзья пользователю " + secondUser.getName());
+        }
+
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(secondUserId, firstUserId)) {
+            return buildFriendRelationStatusResponse(firstUser, secondUser,
+                    FriendRelationStatus.SECOND_REQUESTED_FIRST,
+                    secondUser.getName() + " отправил заявку в друзья пользователю " + firstUser.getName());
+        }
+
+        return buildFriendRelationStatusResponse(firstUser, secondUser, FriendRelationStatus.NO_RELATION,
+                "Связь между пользователями " + firstUser.getName() + " и " + secondUser.getName() + " отсутствует");
+    }
+
     private void normalizeUser(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
             log.info("Пустое поле name автоматически заполнено значением login : {}", user.getLogin());
         }
-        if (user.getFriends() == null) {
-            user.setFriends(new HashSet<>());
-        }
     }
 
     private void validateId(Long id) {
-        if (id == null || id <= 0) {
+        if (id == null) {
             log.warn("Указан невалидный Id = {}", id);
             throw new ValidationException("Id должен быть указан");
+        }
+
+        if (id <= 0) {
+            log.warn("Указан невалидный Id = {}", id);
+            throw new ValidationException("Id должен быть положительным");
         }
     }
 
@@ -171,6 +219,20 @@ public class UserService {
         return ids.stream()
                 .map(userStorage::findUserById)
                 .collect(Collectors.toSet());
+    }
+
+    private FriendRelationStatusResponse buildFriendRelationStatusResponse(User firstUser,
+                                                                           User secondUser,
+                                                                           FriendRelationStatus status,
+                                                                           String description) {
+        return FriendRelationStatusResponse.builder()
+                .firstUserId(firstUser.getId())
+                .firstUserName(firstUser.getName())
+                .secondUserId(secondUser.getId())
+                .secondUserName(secondUser.getName())
+                .status(status)
+                .description(description)
+                .build();
     }
 
     private record FriendshipParticipants(User user, User friend) {

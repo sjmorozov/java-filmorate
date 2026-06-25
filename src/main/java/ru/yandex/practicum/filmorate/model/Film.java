@@ -45,6 +45,5 @@ public class Film {
     @JsonSetter(nulls = Nulls.AS_EMPTY)
     private Set<Genre> genres = new HashSet<>();
 
-    @NotNull(message = "Возрастной рейтинг фильма должен быть указан")
     private MpaRating mpaRating;
 }

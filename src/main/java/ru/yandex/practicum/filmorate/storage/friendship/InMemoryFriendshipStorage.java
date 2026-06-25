@@ -46,6 +46,14 @@ public class InMemoryFriendshipStorage implements FriendshipStorage {
     }
 
     @Override
+    public void deleteAllByUserId(Long userId) {
+        Objects.requireNonNull(userId, "Id пользователя должен быть указан");
+
+        friendships.values().removeIf(friendship -> friendship.getFirstUserId().equals(userId)
+                || friendship.getSecondUserId().equals(userId));
+    }
+
+    @Override
     public boolean existsByUserIds(Long firstUserId, Long secondUserId) {
         return friendships.containsKey(new FriendshipKey(firstUserId, secondUserId));
     }

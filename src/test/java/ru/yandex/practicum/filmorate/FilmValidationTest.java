@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -47,6 +48,7 @@ public class FilmValidationTest {
                 .description(VALID_DESCRIPTION)
                 .releaseDate(VALID_RELEASE_DATE)
                 .duration(VALID_DURATION)
+                .mpaRating(MpaRating.R)
                 .build();
     }
 

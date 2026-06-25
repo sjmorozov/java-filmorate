@@ -12,6 +12,8 @@ public interface FriendshipStorage {
 
     void deleteByUserIds(Long firstUserId, Long secondUserId);
 
+    void deleteAllByUserId(Long userId);
+
     boolean existsByUserIds(Long firstUserId, Long secondUserId);
 
     Set<Long> findFriendIdsByUserId(Long userId);
