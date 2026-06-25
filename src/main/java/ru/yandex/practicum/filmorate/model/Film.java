@@ -33,7 +33,7 @@ public class Film {
     @NotNull(message = "Дата релиза должна быть указана")
     private LocalDate releaseDate;
 
-    @NotNull(message = "Продолжительность фильма должна быть положительным числом")
+    @NotNull(message = "Продолжительность фильма должна быть указана")
     @Positive(message = "Продолжительность фильма должна быть положительным числом")
     private Integer duration;
 
