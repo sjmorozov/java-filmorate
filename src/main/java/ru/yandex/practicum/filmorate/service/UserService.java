@@ -4,7 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.FriendRequest;
+import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
+import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
@@ -16,10 +20,16 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
     private final UserStorage userStorage;
+    private final FriendRequestStorage friendRequestStorage;
+    private final FriendshipStorage friendshipStorage;
 
     @Autowired
-    public UserService(UserStorage userStorage) {
+    public UserService(UserStorage userStorage,
+                       FriendRequestStorage friendRequestStorage,
+                       FriendshipStorage friendshipStorage) {
         this.userStorage = userStorage;
+        this.friendRequestStorage = friendRequestStorage;
+        this.friendshipStorage = friendshipStorage;
     }
 
     public User createUser(User user) {
@@ -56,32 +66,45 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-        validateId(userId);
-        validateId(friendId);
+        FriendshipParticipants participants = getFriendshipParticipants(userId, friendId,
+                "Пользователь не может добавить самого себя в друзья: id = " + userId + ".");
+        User user = participants.user();
+        User friend = participants.friend();
 
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Пользователь не может добавить самого себя в друзья: id = " + userId + ".");
+        if (friendshipStorage.existsByUserIds(userId, friendId)) {
+            log.info("Пользователи {} и {} уже являются друзьями", user.getLogin(), friend.getLogin());
+            return;
         }
 
-        User user = userStorage.findUserById(userId);
-        User friend = userStorage.findUserById(friendId);
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
+            friendRequestStorage.deleteByRequesterIdAndRecipientId(friendId, userId);
+            friendshipStorage.save(Friendship.builder()
+                    .firstUserId(userId)
+                    .secondUserId(friendId)
+                    .build());
 
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
+            log.info("Пользователь {} подтвердил дружбу с пользователем {}", user.getLogin(), friend.getLogin());
+            return;
+        }
 
-        log.info("Пользователь {} подружился с пользователем {}", user.getLogin(), friend.getLogin());
+        if (friendRequestStorage.existsByRequesterIdAndRecipientId(userId, friendId)) {
+            log.info("Пользователь {} уже отправил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
+            return;
+        }
+
+        friendRequestStorage.save(FriendRequest.builder()
+                .requesterId(userId)
+                .recipientId(friendId)
+                .build());
+
+        log.info("Пользователь {} отправил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
     }
 
     public void removeFriend(Long userId, Long friendId) {
-        validateId(userId);
-        validateId(friendId);
-
-        if (userId.equals(friendId)) {
-            throw new ValidationException("Пользователь не может удалить из друзей самого себя: id = " + userId + ".");
-        }
-
-        User user = userStorage.findUserById(userId);
-        User friend = userStorage.findUserById(friendId);
+        FriendshipParticipants participants = getFriendshipParticipants(userId, friendId,
+                "Пользователь не может удалить из друзей самого себя: id = " + userId + ".");
+        User user = participants.user();
+        User friend = participants.friend();
 
         user.getFriends().remove(friendId);
         friend.getFriends().remove(userId);
@@ -130,9 +153,26 @@ public class UserService {
         }
     }
 
+    private FriendshipParticipants getFriendshipParticipants(Long userId, Long friendId, String selfFriendshipMessage) {
+        validateId(userId);
+        validateId(friendId);
+
+        if (userId.equals(friendId)) {
+            throw new ValidationException(selfFriendshipMessage);
+        }
+
+        User user = userStorage.findUserById(userId);
+        User friend = userStorage.findUserById(friendId);
+
+        return new FriendshipParticipants(user, friend);
+    }
+
     private Set<User> getFriendsByIds(Set<Long> ids) {
         return ids.stream()
                 .map(userStorage::findUserById)
                 .collect(Collectors.toSet());
+    }
+
+    private record FriendshipParticipants(User user, User friend) {
     }
 }

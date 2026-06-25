@@ -20,9 +20,9 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Film {
-    private Long id;
-
     private static final int MAX_DESCRIPTION_LENGTH = 200;
+
+    private Long id;
 
     @NotBlank(message = "Название должно быть указано")
     private String name;
@@ -45,6 +45,6 @@ public class Film {
     @JsonSetter(nulls = Nulls.AS_EMPTY)
     private Set<Genre> genres = new HashSet<>();
 
-    @NotNull(message = "Рейтинг МРА должен быть указан")
+    @NotNull(message = "Возрастной рейтинг фильма должен быть указан")
     private MpaRating mpaRating;
 }

@@ -31,9 +31,4 @@ public enum Genre {
     public String getRussianName() {
         return russianName;
     }
-
-    @Override
-    public String toString() {
-        return russianName;
-    }
 }
