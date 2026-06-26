@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.MpaRating;
@@ -35,6 +34,7 @@ public class FilmValidationTest {
     private static final String NAME_MUST_NOT_BE_BLANK_MESSAGE = "Название должно быть указано";
     private static final String MAX_DESCRIPTION_MESSAGE = "Максимальная длина описания — " + MAX_DESCRIPTION_LENGTH + " символов";
     private static final String RELEASE_DATE_MUST_NOT_BE_NULL_MESSAGE = "Дата релиза должна быть указана";
+    private static final String DURATION_MUST_NOT_BE_NULL_MESSAGE = "Продолжительность фильма должна быть указана";
     private static final String DURATION_MUST_BE_POSITIVE_MESSAGE = "Продолжительность фильма должна быть положительным числом";
 
     @BeforeEach
@@ -114,18 +114,24 @@ public class FilmValidationTest {
     }
 
     @Test
-    void shouldHaveDurationViolationWhenDurationIsZero() {
+    void shouldHaveDurationViolationWhenDurationIsNull() {
         Film film = createValidFilm();
-        film.setDuration(0);
-        assertHasViolation(film, FIELD_DURATION, DURATION_MUST_BE_POSITIVE_MESSAGE);
+        film.setDuration(null);
+        assertHasViolation(film, FIELD_DURATION, DURATION_MUST_NOT_BE_NULL_MESSAGE);
     }
 
     @ParameterizedTest(name = "[{index}] invalid duration = {0}")
-    @NullSource
     @ValueSource(ints = {0, -1})
     void shouldHaveDurationViolationWhenDurationIsInvalid(Integer duration) {
         Film film = createValidFilm();
         film.setDuration(duration);
         assertHasViolation(film, FIELD_DURATION, DURATION_MUST_BE_POSITIVE_MESSAGE);
+    }
+
+    @Test
+    void shouldHaveNoViolationsWhenMpaRatingIsNull() {
+        Film film = createValidFilm();
+        film.setMpaRating(null);
+        assertHasNoViolations(film);
     }
 }

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
@@ -22,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class UserServiceTest {
     private UserService userService;
+    private FriendRequestStorage friendRequestStorage;
+    private FriendshipStorage friendshipStorage;
 
     private static final Long NON_EXISTENT_USER_ID = 999L;
 
@@ -46,8 +49,8 @@ public class UserServiceTest {
     @BeforeEach
     void setUserService() {
         UserStorage userStorage = new InMemoryUserStorage();
-        FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
-        FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
+        friendRequestStorage = new InMemoryFriendRequestStorage();
+        friendshipStorage = new InMemoryFriendshipStorage();
         userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
     }
 
@@ -86,6 +89,29 @@ public class UserServiceTest {
 
     private static String removeSelfFromFriendsMessage(Long id) {
         return "Пользователь не может удалить из друзей самого себя: id = " + id + ".";
+    }
+
+    private void assertRelationStatus(User firstUser, User secondUser, FriendRelationStatus expectedStatus) {
+        FriendRelationStatusResponse response = userService.getFriendRelationStatus(firstUser.getId(), secondUser.getId());
+
+        assertThat(response.getFirstUserId())
+                .as("Id первого пользователя должен совпадать")
+                .isEqualTo(firstUser.getId());
+        assertThat(response.getFirstUserName())
+                .as("Имя первого пользователя должно совпадать")
+                .isEqualTo(firstUser.getName());
+        assertThat(response.getSecondUserId())
+                .as("Id второго пользователя должен совпадать")
+                .isEqualTo(secondUser.getId());
+        assertThat(response.getSecondUserName())
+                .as("Имя второго пользователя должно совпадать")
+                .isEqualTo(secondUser.getName());
+        assertThat(response.getStatus())
+                .as("Статус связи должен совпадать")
+                .isEqualTo(expectedStatus);
+        assertThat(response.getDescription())
+                .as("Описание должно быть человекочитаемым и содержать имена пользователей")
+                .contains(firstUser.getName(), secondUser.getName());
     }
 
     @Test
@@ -283,6 +309,45 @@ public class UserServiceTest {
     }
 
     @Test
+    void shouldReturnNoRelationStatusWhenUsersHaveNoRelation() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.NO_RELATION);
+    }
+
+    @Test
+    void shouldReturnFirstRequestedSecondStatusWhenFirstUserSentRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.FIRST_REQUESTED_SECOND);
+    }
+
+    @Test
+    void shouldReturnSecondRequestedFirstStatusWhenSecondUserSentRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.SECOND_REQUESTED_FIRST);
+    }
+
+    @Test
+    void shouldReturnFriendsStatusWhenFriendshipConfirmed() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.FRIENDS);
+    }
+
+    @Test
     void shouldConfirmFriendshipWhenBothUsersAddEachOther() {
         User firstCreatedUser = saveUser(createValidUser());
         User secondCreatedUser = saveUser(createSecondValidUser());
@@ -340,6 +405,34 @@ public class UserServiceTest {
         assertThat(userService.getFriendRelationStatus(firstCreatedUser.getId(), secondCreatedUser.getId()).getStatus())
                 .as("После удаления дружбы второй пользователь должен остаться подписчиком первого")
                 .isEqualTo(FriendRelationStatus.SECOND_REQUESTED_FIRST);
+    }
+
+    @Test
+    void shouldCancelOutgoingFriendRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.removeFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.NO_RELATION);
+        assertThat(userService.getUserFriends(firstCreatedUser.getId()))
+                .as("Отменённая заявка не должна превращаться в дружбу")
+                .isEmpty();
+    }
+
+    @Test
+    void shouldRejectIncomingFriendRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+        userService.removeFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.NO_RELATION);
+        assertThat(userService.getUserFriends(secondCreatedUser.getId()))
+                .as("Отклонённая заявка не должна превращаться в дружбу")
+                .isEmpty();
     }
 
     @Test
@@ -450,6 +543,29 @@ public class UserServiceTest {
         assertThatThrownBy(() -> userService.findUserById(userId))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(userId));
+    }
+
+    @Test
+    void shouldDeleteUserAndCleanFriendshipsAndFriendRequests() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+        User thirdCreatedUser = saveUser(createThirdValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), thirdCreatedUser.getId());
+
+        userService.deleteUser(secondCreatedUser.getId());
+
+        assertThat(friendshipStorage.existsByUserIds(firstCreatedUser.getId(), secondCreatedUser.getId()))
+                .as("Подтверждённая дружба удалённого пользователя должна быть очищена")
+                .isFalse();
+        assertThat(friendRequestStorage.existsByRequesterIdAndRecipientId(secondCreatedUser.getId(), thirdCreatedUser.getId()))
+                .as("Заявка от удалённого пользователя должна быть очищена")
+                .isFalse();
+        assertThat(userService.getUserFriends(firstCreatedUser.getId()))
+                .as("После удаления пользователя у первого не должно остаться ссылки на него в друзьях")
+                .isEmpty();
     }
 
     @Test

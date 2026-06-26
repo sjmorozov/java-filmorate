@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
@@ -14,6 +16,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -144,6 +147,22 @@ public class FilmServiceTest {
         assertThat(filmService.getAllFilms())
                 .as("Ожидается число фильмов 1")
                 .hasSize(1);
+    }
+
+    @Test
+    void shouldCreateFilmWithGenresAndMpaRating() {
+        Film film = createValidFilm();
+        film.setGenres(Set.of(Genre.ACTION, Genre.SCI_FI));
+        film.setMpaRating(MpaRating.PG_13);
+
+        Film result = saveFilm(film);
+
+        assertThat(result.getGenres())
+                .as("Жанры фильма должны сохраниться")
+                .containsExactlyInAnyOrder(Genre.ACTION, Genre.SCI_FI);
+        assertThat(result.getMpaRating())
+                .as("Рейтинг MPA должен сохраниться")
+                .isEqualTo(MpaRating.PG_13);
     }
 
     @Test
