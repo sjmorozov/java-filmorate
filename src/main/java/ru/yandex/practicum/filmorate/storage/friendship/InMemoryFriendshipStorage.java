@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Component
 public class InMemoryFriendshipStorage implements FriendshipStorage {
     private final Map<FriendshipKey, Friendship> friendships = new HashMap<>();
 
