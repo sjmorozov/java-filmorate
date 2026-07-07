@@ -9,7 +9,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
 
 import java.sql.Date;
@@ -20,9 +19,6 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -66,12 +62,6 @@ public class FilmDbStorage implements FilmStorage {
         Long filmId = generatedId.longValue();
         film.setId(filmId);
 
-        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
-            film.getGenres().stream()
-                    .map(Genre::getId)
-                    .forEach(id -> addFilmGenre(filmId, id));
-        }
-
         return film;
     }
 
@@ -97,13 +87,6 @@ public class FilmDbStorage implements FilmStorage {
 
         if (rowsAffected == 0) {
             throw new NotFoundException("Фильм с id = " + filmId + " не найден");
-        }
-
-        if (film.getGenres() != null) {
-            deleteFilmGenres(filmId);
-            film.getGenres().stream()
-                    .map(Genre::getId)
-                    .forEach(id -> addFilmGenre(filmId, id));
         }
 
         return film;
@@ -142,8 +125,7 @@ public class FilmDbStorage implements FilmStorage {
                 """;
 
         try {
-            Film film = jdbcTemplate.queryForObject(sql, this::mapRowToFilm, id);
-            return loadFilmRelations(film);
+            return jdbcTemplate.queryForObject(sql, this::mapRowToFilm, id);
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Фильм с id = " + id + " не найден");
         }
@@ -164,61 +146,15 @@ public class FilmDbStorage implements FilmStorage {
                 ORDER BY f.id
                 """;
 
-        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm);
-        films.forEach(this::loadFilmRelations);
-        return films;
+        return jdbcTemplate.query(sql, this::mapRowToFilm);
     }
 
     private Date toSqlDate(LocalDate date) {
         return date == null ? null : Date.valueOf(date);
     }
 
-    private void addFilmGenre(Long filmId, Integer genreId) {
-        String sql = """
-                MERGE INTO film_genres (film_id, genre_id)
-                KEY (film_id, genre_id)
-                VALUES (?, ?)
-                """;
-
-        jdbcTemplate.update(
-                sql,
-                filmId,
-                genreId
-        );
-    }
-
-    private void deleteFilmGenres(Long filmId) {
-        String sql = """
-                DELETE FROM film_genres
-                WHERE film_id = ?
-                """;
-
-        jdbcTemplate.update(
-                sql,
-                filmId
-        );
-    }
-
-    private Set<Genre> getFilmGenres(Long filmId) {
-        String sql = """
-                SELECT  f.genre_id AS genre_id,
-                        g.name AS genre_name
-                FROM film_genres AS f
-                JOIN genres AS g ON f.genre_id = g.id
-                WHERE f.film_id = ?
-                ORDER BY g.id
-                """;
-
-        return new LinkedHashSet<>(jdbcTemplate.query(sql, this::mapRowToGenre, filmId));
-    }
-
     private Integer getMpaIdOrNull(Film film) {
         return (film.getMpa() == null) ? null : film.getMpa().getId();
-    }
-
-    private Film loadFilmRelations(Film film) {
-        film.setGenres(getFilmGenres(film.getId()));
-        return film;
     }
 
     private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {
@@ -236,13 +172,5 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         return film;
-    }
-
-    private Genre mapRowToGenre(ResultSet rs, int rowNum) throws SQLException {
-        Genre genre = new Genre();
-
-        genre.setId(rs.getInt("genre_id"));
-        genre.setName(rs.getString("genre_name"));
-        return genre;
     }
 }
