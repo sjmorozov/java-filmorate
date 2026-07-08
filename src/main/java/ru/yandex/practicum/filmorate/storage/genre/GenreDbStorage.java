@@ -7,10 +7,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.MpaRating;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -31,6 +31,17 @@ public class GenreDbStorage implements GenreStorage {
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Жанр с id = " + id + " не найден");
         }
+    }
+
+    @Override
+    public Collection<Genre> findAll() {
+        String sql = """
+                SELECT id, name
+                FROM genres
+                ORDER BY id
+                """;
+
+        return jdbcTemplate.query(sql, this::mapRowToGenre);
     }
 
     private Genre mapRowToGenre(ResultSet rs, int rowNum) throws SQLException {

@@ -9,6 +9,8 @@ import ru.yandex.practicum.filmorate.model.MpaRating;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -28,6 +30,17 @@ public class MpaRatingDbStorage implements MpaRatingStorage {
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Рейтинг с id = " + id + " не найден");
         }
+    }
+
+    @Override
+    public Collection<MpaRating> findAll() {
+        String sql = """
+                SELECT id, name
+                FROM mpa_ratings
+                ORDER BY id
+                """;
+
+        return jdbcTemplate.query(sql, this::mapRowToMpa);
     }
 
     private MpaRating mapRowToMpa(ResultSet rs, int rowNum) throws SQLException {

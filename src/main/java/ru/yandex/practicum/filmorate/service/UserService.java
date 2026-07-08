@@ -25,42 +25,42 @@ public class UserService {
     private final FriendRequestStorage friendRequestStorage;
     private final FriendshipStorage friendshipStorage;
 
-    public User createUser(User user) {
+    public User create(User user) {
         normalizeUser(user);
-        User createdUser = userStorage.addUser(user);
+        User createdUser = userStorage.add(user);
         log.info("Пользователь с id = {}, login = {} добавлен", createdUser.getId(), createdUser.getLogin());
         return createdUser;
     }
 
-    public User updateUser(User user) {
+    public User update(User user) {
         validateId(user.getId());
 
-        userStorage.findUserById(user.getId());
+        userStorage.findById(user.getId());
         normalizeUser(user);
 
-        User updatedUser = userStorage.updateUser(user);
+        User updatedUser = userStorage.update(user);
         log.info("Профиль пользователя с id = {}, login = {} обновлён", updatedUser.getId(), updatedUser.getLogin());
         return updatedUser;
     }
 
-    public void deleteUser(Long id) {
+    public void delete(Long id) {
         validateId(id);
-        userStorage.findUserById(id);
+        userStorage.findById(id);
 
         friendshipStorage.deleteAllByUserId(id);
         friendRequestStorage.deleteAllByUserId(id);
 
-        userStorage.deleteUser(id);
+        userStorage.delete(id);
         log.info("Пользователь с id = {} удалён", id);
     }
 
-    public User findUserById(Long id) {
+    public User findById(Long id) {
         validateId(id);
-        return userStorage.findUserById(id);
+        return userStorage.findById(id);
     }
 
-    public Collection<User> findAllUsers() {
-        return userStorage.findAllUsers();
+    public Collection<User> findAll() {
+        return userStorage.findAll();
     }
 
     public void addFriend(Long userId, Long friendId) {
@@ -130,20 +130,20 @@ public class UserService {
         log.info("Связь между пользователями {} и {} отсутствует", user.getLogin(), friend.getLogin());
     }
 
-    public Set<User> getUserFriends(Long id) {
+    public Set<User> findFriends(Long id) {
         validateId(id);
-        userStorage.findUserById(id);
+        userStorage.findById(id);
         Set<Long> friendsIds = friendshipStorage.findFriendIdsByUserId(id);
 
         return getFriendsByIds(friendsIds);
     }
 
-    public Set<User> getCommonFriends(Long firstId, Long secondId) {
+    public Set<User> findCommonFriends(Long firstId, Long secondId) {
         validateId(firstId);
         validateId(secondId);
 
-        userStorage.findUserById(firstId);
-        userStorage.findUserById(secondId);
+        userStorage.findById(firstId);
+        userStorage.findById(secondId);
 
         Set<Long> firstSetIds = friendshipStorage.findFriendIdsByUserId(firstId);
         Set<Long> secondSetIds = friendshipStorage.findFriendIdsByUserId(secondId);
@@ -155,7 +155,7 @@ public class UserService {
         return getFriendsByIds(commonFriends);
     }
 
-    public FriendRelationStatusResponse getFriendRelationStatus(Long firstUserId, Long secondUserId) {
+    public FriendRelationStatusResponse findRelationStatus(Long firstUserId, Long secondUserId) {
         FriendshipParticipants participants = getFriendshipParticipants(firstUserId, secondUserId,
                 "Пользователь не может иметь связь дружбы сам с собой: id = " + firstUserId + ".");
         User firstUser = participants.user();
@@ -209,15 +209,15 @@ public class UserService {
             throw new ValidationException(selfFriendshipMessage);
         }
 
-        User user = userStorage.findUserById(userId);
-        User friend = userStorage.findUserById(friendId);
+        User user = userStorage.findById(userId);
+        User friend = userStorage.findById(friendId);
 
         return new FriendshipParticipants(user, friend);
     }
 
     private Set<User> getFriendsByIds(Set<Long> ids) {
         return ids.stream()
-                .map(userStorage::findUserById)
+                .map(userStorage::findById)
                 .collect(Collectors.toSet());
     }
 

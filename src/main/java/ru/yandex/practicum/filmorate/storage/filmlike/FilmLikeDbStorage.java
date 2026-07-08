@@ -17,7 +17,7 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    public void addLike(Long filmId, Long userId) {
+    public void add(Long filmId, Long userId) {
         String sql = """
                 MERGE INTO film_likes (film_id, user_id)
                 KEY (film_id, user_id)
@@ -32,7 +32,7 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
     }
 
     @Override
-    public void deleteLike(Long filmId, Long userId) {
+    public void delete(Long filmId, Long userId) {
         String sql = """
                 DELETE FROM film_likes
                 WHERE film_id = ?

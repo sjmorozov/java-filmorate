@@ -27,7 +27,7 @@ public class FilmDbStorage implements FilmStorage {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    public Film addFilm(Film film) {
+    public Film add(Film film) {
         String sql = """
                 INSERT INTO films (name, description, release_date, duration, mpa_rating_id)
                 VALUES (?, ?, ?, ?, ?)
@@ -66,7 +66,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public Film updateFilm(Film film) {
+    public Film update(Film film) {
         String sql = """
                 UPDATE films
                 SET name = ?, description = ?, release_date = ?, duration = ?, mpa_rating_id = ?
@@ -93,7 +93,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public void deleteFilm(Long id) {
+    public void delete(Long id) {
         String sql = """
                 DELETE FROM films
                 WHERE id = ?
@@ -110,7 +110,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public Film findFilmById(Long id) {
+    public Film findById(Long id) {
         String sql = """
                 SELECT f.id,
                        f.name,
@@ -132,7 +132,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public Collection<Film> findAllFilms() {
+    public Collection<Film> findAll() {
         String sql = """
                 SELECT f.id,
                        f.name,

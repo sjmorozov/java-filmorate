@@ -18,17 +18,17 @@ public class FilmGenreDbStorage implements FilmGenreStorage {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    public void replaceFilmGenres(Long filmId, Set<Genre> genres) {
+    public void replaceByFilmId(Long filmId, Set<Genre> genres) {
         if (genres != null) {
-            deleteFilmGenres(filmId);
+            deleteByFilmId(filmId);
             genres.stream()
                     .map(Genre::getId)
-                    .forEach(id -> addFilmGenre(filmId, id));
+                    .forEach(id -> addGenre(filmId, id));
         }
     }
 
     @Override
-    public Set<Genre> findGenresByFilmId(Long filmId) {
+    public Set<Genre> findByFilmId(Long filmId) {
         String sql = """
                 SELECT  f.genre_id AS genre_id,
                         g.name AS genre_name
@@ -41,7 +41,7 @@ public class FilmGenreDbStorage implements FilmGenreStorage {
         return new LinkedHashSet<>(jdbcTemplate.query(sql, this::mapRowToGenre, filmId));
     }
 
-    private void deleteFilmGenres(Long filmId) {
+    private void deleteByFilmId(Long filmId) {
         String sql = """
                 DELETE FROM film_genres
                 WHERE film_id = ?
@@ -53,7 +53,7 @@ public class FilmGenreDbStorage implements FilmGenreStorage {
         );
     }
 
-    private void addFilmGenre(Long filmId, Integer genreId) {
+    private void addGenre(Long filmId, Integer genreId) {
         String sql = """
                 MERGE INTO film_genres (film_id, genre_id)
                 KEY (film_id, genre_id)

@@ -25,7 +25,7 @@ public class UserDbStorage implements UserStorage {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    public User addUser(User user) {
+    public User add(User user) {
         String sql = """
                 INSERT INTO users (email, login, name, birthday)
                 VALUES (?, ?, ?, ?)
@@ -59,7 +59,7 @@ public class UserDbStorage implements UserStorage {
     }
 
     @Override
-    public User updateUser(User user) {
+    public User update(User user) {
         String sql = """
                 UPDATE users
                 SET email = ?, login = ?, name = ?, birthday = ?
@@ -83,7 +83,7 @@ public class UserDbStorage implements UserStorage {
     }
 
     @Override
-    public void deleteUser(Long id) {
+    public void delete(Long id) {
         String sql = """
                 DELETE FROM users
                 WHERE id = ?
@@ -100,7 +100,7 @@ public class UserDbStorage implements UserStorage {
     }
 
     @Override
-    public User findUserById(Long id) {
+    public User findById(Long id) {
         String sql = """
                 SELECT id, email, login, name, birthday
                 FROM users
@@ -115,7 +115,7 @@ public class UserDbStorage implements UserStorage {
     }
 
     @Override
-    public Collection<User> findAllUsers() {
+    public Collection<User> findAll() {
         String sql = """
                 SELECT id, email, login, name, birthday
                 FROM users

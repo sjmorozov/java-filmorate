@@ -36,22 +36,22 @@ public class FilmService {
     private final FilmLikeStorage filmLikeStorage;
 
     @Transactional
-    public Film createFilm(Film film) {
+    public Film create(Film film) {
         validateReleaseDate(film.getReleaseDate());
         resolveMpa(film);
         resolveGenres(film);
 
-        Film createdFilm = filmStorage.addFilm(film);
+        Film createdFilm = filmStorage.add(film);
 
-        filmGenreStorage.replaceFilmGenres(createdFilm.getId(), createdFilm.getGenres());
+        filmGenreStorage.replaceByFilmId(createdFilm.getId(), createdFilm.getGenres());
 
         log.info("Фильм добавлен: id={}, name={}", createdFilm.getId(), createdFilm.getName());
         return createdFilm;
     }
 
     @Transactional
-    public Film updateFilm(Film film) {
-        Film oldFilm = filmStorage.findFilmById(film.getId());
+    public Film update(Film film) {
+        Film oldFilm = filmStorage.findById(film.getId());
 
         if (film.getName() != null) {
             if (film.getName().isBlank()) {
@@ -91,56 +91,56 @@ public class FilmService {
             oldFilm.setGenres(film.getGenres());
         }
 
-        Film updatedFilm = filmStorage.updateFilm(oldFilm);
+        Film updatedFilm = filmStorage.update(oldFilm);
 
         if (film.getGenres() != null) {
-            filmGenreStorage.replaceFilmGenres(updatedFilm.getId(), updatedFilm.getGenres());
+            filmGenreStorage.replaceByFilmId(updatedFilm.getId(), updatedFilm.getGenres());
         }
 
         log.info("Фильм обновлён: id = {}, name = {}", updatedFilm.getId(), updatedFilm.getName());
         return updatedFilm;
     }
 
-    public void deleteFilm(Long id) {
-        filmStorage.deleteFilm(id);
+    public void delete(Long id) {
+        filmStorage.delete(id);
         log.info("Фильм с id = {} удалён", id);
     }
 
-    public Film findFilmById(Long id) {
-        Film film = filmStorage.findFilmById(id);
-        film.setGenres(filmGenreStorage.findGenresByFilmId(id));
+    public Film findById(Long id) {
+        Film film = filmStorage.findById(id);
+        film.setGenres(filmGenreStorage.findByFilmId(id));
         film.setLikes(filmLikeStorage.findUserIdsByFilmId(film.getId()));
         return film;
     }
 
-    public Collection<Film> getAllFilms() {
-        Collection<Film> films = filmStorage.findAllFilms();
-        films.forEach(film -> film.setGenres(filmGenreStorage.findGenresByFilmId(film.getId())));
+    public Collection<Film> findAll() {
+        Collection<Film> films = filmStorage.findAll();
+        films.forEach(film -> film.setGenres(filmGenreStorage.findByFilmId(film.getId())));
         films.forEach(film -> film.setLikes(filmLikeStorage.findUserIdsByFilmId(film.getId())));
         return films;
     }
 
-    public void likeFilm(Long filmId, Long userId) {
-        Film film = filmStorage.findFilmById(filmId);
-        User user = userStorage.findUserById(userId);
+    public void addLike(Long filmId, Long userId) {
+        Film film = filmStorage.findById(filmId);
+        User user = userStorage.findById(userId);
 
-        filmLikeStorage.addLike(film.getId(), user.getId());
+        filmLikeStorage.add(film.getId(), user.getId());
 
         log.info("Пользователь {} поставил лайк фильму {}", user.getName(), film.getName());
     }
 
     public void deleteLike(Long filmId, Long userId) {
-        Film film = filmStorage.findFilmById(filmId);
-        User user = userStorage.findUserById(userId);
+        Film film = filmStorage.findById(filmId);
+        User user = userStorage.findById(userId);
 
-        filmLikeStorage.deleteLike(film.getId(), user.getId());
+        filmLikeStorage.delete(film.getId(), user.getId());
 
         log.info("Пользователь {} убрал лайк с фильма {}", user.getName(), film.getName());
     }
 
-    public Collection<Film> getPopularFilms(int count) {
+    public Collection<Film> findPopular(int count) {
         Comparator<Film> likesComparator = Comparator.comparingInt(film -> film.getLikes().size());
-        return getAllFilms().stream()
+        return findAll().stream()
                 .sorted(likesComparator.reversed())
                 .limit(count)
                 .toList();
