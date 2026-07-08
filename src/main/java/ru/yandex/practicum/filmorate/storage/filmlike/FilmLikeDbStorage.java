@@ -46,8 +46,7 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
         );
 
         if (rowsAffected == 0) {
-            throw new NotFoundException
-                    ("Лайк пользователя с id = " + userId + " для фильма с id = " + filmId + " не найден");
+            throw new NotFoundException("Лайк пользователя с id = " + userId + " для фильма с id = " + filmId + " не найден");
         }
     }
 

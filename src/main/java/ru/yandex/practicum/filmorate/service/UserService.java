@@ -14,6 +14,7 @@ import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -122,8 +123,8 @@ public class UserService {
         }
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
-            friendRequestStorage.deleteByRequesterIdAndRecipientId(friendId, userId);
-            log.info("Пользователь {} отклонил заявку в друзья от пользователя {}", user.getLogin(), friend.getLogin());
+            log.info("Пользователь {} не изменил входящую заявку в друзья от пользователя {}",
+                    user.getLogin(), friend.getLogin());
             return;
         }
 
@@ -133,9 +134,8 @@ public class UserService {
     public Set<User> findFriends(Long id) {
         validateId(id);
         userStorage.findById(id);
-        Set<Long> friendsIds = friendshipStorage.findFriendIdsByUserId(id);
 
-        return getFriendsByIds(friendsIds);
+        return getFriendsByIds(findVisibleFriendIdsByUserId(id));
     }
 
     public Set<User> findCommonFriends(Long firstId, Long secondId) {
@@ -145,8 +145,8 @@ public class UserService {
         userStorage.findById(firstId);
         userStorage.findById(secondId);
 
-        Set<Long> firstSetIds = friendshipStorage.findFriendIdsByUserId(firstId);
-        Set<Long> secondSetIds = friendshipStorage.findFriendIdsByUserId(secondId);
+        Set<Long> firstSetIds = findVisibleFriendIdsByUserId(firstId);
+        Set<Long> secondSetIds = findVisibleFriendIdsByUserId(secondId);
 
         Set<Long> commonFriends = firstSetIds.stream()
                 .filter(secondSetIds::contains)
@@ -218,7 +218,15 @@ public class UserService {
     private Set<User> getFriendsByIds(Set<Long> ids) {
         return ids.stream()
                 .map(userStorage::findById)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    // Во внутренней модели исходящая заявка и подтверждённая дружба различаются.
+    // Для публичного API исходящая заявка считается пользователем, которого автор добавил в друзья.
+    private Set<Long> findVisibleFriendIdsByUserId(Long userId) {
+        Set<Long> friendIds = new LinkedHashSet<>(friendshipStorage.findFriendIdsByUserId(userId));
+        friendIds.addAll(friendRequestStorage.findRecipientIdsByRequesterId(userId));
+        return friendIds;
     }
 
     private FriendRelationStatusResponse buildFriendRelationStatusResponse(User firstUser,

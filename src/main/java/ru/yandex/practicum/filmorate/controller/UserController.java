@@ -70,6 +70,7 @@ public class UserController {
 
     @GetMapping("/{id}/friends")
     public Set<User> findFriends(@PathVariable Long id) {
+        // Возвращаем публичный список друзей: подтверждённые дружбы и исходящие заявки пользователя.
         return userService.findFriends(id);
     }
 

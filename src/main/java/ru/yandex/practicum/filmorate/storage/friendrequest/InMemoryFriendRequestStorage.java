@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.friendrequest;
 
-import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.FriendRequest;
 

@@ -48,7 +48,7 @@ public class FilmValidationTest {
                 .description(VALID_DESCRIPTION)
                 .releaseDate(VALID_RELEASE_DATE)
                 .duration(VALID_DURATION)
-                .mpaRating(MpaRating.R)
+                .mpa(new MpaRating(4, "R"))
                 .build();
     }
 
@@ -131,7 +131,7 @@ public class FilmValidationTest {
     @Test
     void shouldHaveNoViolationsWhenMpaRatingIsNull() {
         Film film = createValidFilm();
-        film.setMpaRating(null);
+        film.setMpa(null);
         assertHasNoViolations(film);
     }
 }

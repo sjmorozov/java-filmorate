@@ -128,9 +128,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
                 SELECT second_id
                 FROM friendships
                 WHERE first_id = ?
-                
                 UNION
-                
                 SELECT first_id
                 FROM friendships
                 WHERE second_id = ?

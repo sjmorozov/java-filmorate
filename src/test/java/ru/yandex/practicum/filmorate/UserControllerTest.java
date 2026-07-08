@@ -46,13 +46,13 @@ public class UserControllerTest {
     void shouldCreateUserWithValidData() {
         User user = createValidUser();
 
-        User resultUser = userController.createUser(user);
+        User resultUser = userController.create(user);
 
         assertEquals(VALID_EMAIL, resultUser.getEmail(), "Ожидается имейл " + VALID_EMAIL);
         assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
         assertEquals(VALID_NAME, resultUser.getName(), "Ожидается имя " + VALID_NAME);
         assertEquals(VALID_BIRTHDAY, resultUser.getBirthday(), "Ожидается дата рождения " + VALID_BIRTHDAY);
         assertEquals(1L, resultUser.getId(), "Ожидается Id = 1");
-        assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
+        assertEquals(1, userController.findAll().size(), "Ожидается общее количество пользователей 1");
     }
 }
