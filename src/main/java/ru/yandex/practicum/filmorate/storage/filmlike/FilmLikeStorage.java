@@ -1,5 +1,7 @@
 package ru.yandex.practicum.filmorate.storage.filmlike;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 public interface FilmLikeStorage {
@@ -8,4 +10,6 @@ public interface FilmLikeStorage {
     void delete(Long filmId, Long userId);
 
     Set<Long> findUserIdsByFilmId(Long filmId);
+
+    Map<Long, Set<Long>> findUserIdsByFilmIds(Collection<Long> filmIds);
 }

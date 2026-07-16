@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
@@ -19,6 +20,9 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -108,15 +112,13 @@ public class FilmService {
 
     public Film findById(Long id) {
         Film film = filmStorage.findById(id);
-        film.setGenres(filmGenreStorage.findByFilmId(id));
-        film.setLikes(filmLikeStorage.findUserIdsByFilmId(film.getId()));
+        loadFilmRelations(List.of(film));
         return film;
     }
 
     public Collection<Film> findAll() {
         Collection<Film> films = filmStorage.findAll();
-        films.forEach(film -> film.setGenres(filmGenreStorage.findByFilmId(film.getId())));
-        films.forEach(film -> film.setLikes(filmLikeStorage.findUserIdsByFilmId(film.getId())));
+        loadFilmRelations(films);
         return films;
     }
 
@@ -139,11 +141,31 @@ public class FilmService {
     }
 
     public Collection<Film> findPopular(int count) {
-        Comparator<Film> likesComparator = Comparator.comparingInt(film -> film.getLikes().size());
-        return findAll().stream()
-                .sorted(likesComparator.reversed())
+        Collection<Film> films = filmStorage.findAll();
+
+        if (films.isEmpty()) {
+            return films;
+        }
+
+        List<Long> filmIds = getFilmIds(films);
+        Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(filmIds);
+        Comparator<Film> likesComparator = Comparator
+                .comparingInt((Film film) -> likesByFilmId.getOrDefault(film.getId(), Set.of()).size())
+                .reversed()
+                .thenComparing(Film::getId);
+        List<Film> popularFilms = films.stream()
+                .sorted(likesComparator)
                 .limit(count)
                 .toList();
+
+        Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(getFilmIds(popularFilms));
+        popularFilms.forEach(film -> {
+            Long filmId = film.getId();
+            film.setGenres(genresByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
+            film.setLikes(likesByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
+        });
+
+        return popularFilms;
     }
 
     private void validateReleaseDate(LocalDate releaseDate) {
@@ -164,14 +186,50 @@ public class FilmService {
 
     private boolean resolveGenres(Film film) {
         if (film.getGenres() != null) {
-            LinkedHashSet<Genre> genres = film.getGenres().stream()
+            LinkedHashSet<Integer> genreIds = film.getGenres().stream()
                     .map(Genre::getId)
-                    .map(genreStorage::findById)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<Genre> genres = genreStorage.findByIds(genreIds);
+            validateAllGenresFound(genreIds, genres);
             film.setGenres(genres);
             return true;
         }
 
         return false;
+    }
+
+    private void loadFilmRelations(Collection<Film> films) {
+        if (films.isEmpty()) {
+            return;
+        }
+
+        List<Long> filmIds = getFilmIds(films);
+        Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(filmIds);
+        Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(filmIds);
+
+        films.forEach(film -> {
+            Long filmId = film.getId();
+            film.setGenres(genresByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
+            film.setLikes(likesByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
+        });
+    }
+
+    private List<Long> getFilmIds(Collection<Film> films) {
+        return films.stream()
+                .map(Film::getId)
+                .toList();
+    }
+
+    private void validateAllGenresFound(Collection<Integer> requestedGenreIds, Collection<Genre> foundGenres) {
+        Set<Integer> foundGenreIds = foundGenres.stream()
+                .map(Genre::getId)
+                .collect(Collectors.toSet());
+
+        requestedGenreIds.stream()
+                .filter(id -> !foundGenreIds.contains(id))
+                .findFirst()
+                .ifPresent(id -> {
+                    throw new NotFoundException("Жанр с id = " + id + " не найден");
+                });
     }
 }

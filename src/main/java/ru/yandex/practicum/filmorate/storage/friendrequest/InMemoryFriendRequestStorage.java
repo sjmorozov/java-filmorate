@@ -39,6 +39,12 @@ public class InMemoryFriendRequestStorage implements FriendRequestStorage {
     }
 
     @Override
+    public boolean deleteIfExistsByRequesterIdAndRecipientId(Long requesterId, Long recipientId) {
+        FriendRequestKey key = new FriendRequestKey(requesterId, recipientId);
+        return friendRequests.remove(key) != null;
+    }
+
+    @Override
     public void deleteAllByUserId(Long userId) {
         Objects.requireNonNull(userId, "Id пользователя должен быть указан");
 

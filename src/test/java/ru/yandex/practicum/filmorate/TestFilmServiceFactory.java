@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 final class TestFilmServiceFactory {
 
@@ -81,6 +82,17 @@ final class TestFilmServiceFactory {
         }
 
         @Override
+        public Set<Genre> findByIds(Collection<Integer> ids) {
+            if (ids == null || ids.isEmpty()) {
+                return Set.of();
+            }
+
+            return ids.stream()
+                    .map(this::findById)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+
+        @Override
         public Collection<Genre> findAll() {
             return genres.values();
         }
@@ -97,6 +109,25 @@ final class TestFilmServiceFactory {
         @Override
         public Set<Genre> findByFilmId(Long filmId) {
             return new LinkedHashSet<>(genresByFilmId.getOrDefault(filmId, Set.of()));
+        }
+
+        @Override
+        public Map<Long, Set<Genre>> findByFilmIds(Collection<Long> filmIds) {
+            if (filmIds == null || filmIds.isEmpty()) {
+                return Map.of();
+            }
+
+            Map<Long, Set<Genre>> result = new LinkedHashMap<>();
+
+            for (Long filmId : filmIds) {
+                Set<Genre> genres = genresByFilmId.get(filmId);
+
+                if (genres != null) {
+                    result.put(filmId, new LinkedHashSet<>(genres));
+                }
+            }
+
+            return result;
         }
     }
 
@@ -121,6 +152,25 @@ final class TestFilmServiceFactory {
         @Override
         public Set<Long> findUserIdsByFilmId(Long filmId) {
             return new LinkedHashSet<>(likesByFilmId.getOrDefault(filmId, Set.of()));
+        }
+
+        @Override
+        public Map<Long, Set<Long>> findUserIdsByFilmIds(Collection<Long> filmIds) {
+            if (filmIds == null || filmIds.isEmpty()) {
+                return Map.of();
+            }
+
+            Map<Long, Set<Long>> result = new LinkedHashMap<>();
+
+            for (Long filmId : filmIds) {
+                Set<Long> likes = likesByFilmId.get(filmId);
+
+                if (likes != null) {
+                    result.put(filmId, new LinkedHashSet<>(likes));
+                }
+            }
+
+            return result;
         }
     }
 }

@@ -3,11 +3,17 @@ package ru.yandex.practicum.filmorate.storage.filmlike;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -61,5 +67,32 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
         List<Long> userIdsList = jdbcTemplate.queryForList(sql, Long.class, filmId);
 
         return new HashSet<>(userIdsList);
+    }
+
+    @Override
+    public Map<Long, Set<Long>> findUserIdsByFilmIds(Collection<Long> filmIds) {
+        if (filmIds == null || filmIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String sql = """
+                SELECT film_id, user_id
+                FROM film_likes
+                WHERE film_id IN (:filmIds)
+                ORDER BY film_id, user_id
+                """;
+
+        Map<Long, Set<Long>> userIdsByFilmId = new LinkedHashMap<>();
+        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+        MapSqlParameterSource parameters = new MapSqlParameterSource("filmIds", filmIds);
+
+        namedJdbcTemplate.query(sql, parameters, rs -> {
+            Long filmId = rs.getLong("film_id");
+            Long userId = rs.getLong("user_id");
+            userIdsByFilmId.computeIfAbsent(filmId, id -> new LinkedHashSet<>())
+                    .add(userId);
+        });
+
+        return userIdsByFilmId;
     }
 }

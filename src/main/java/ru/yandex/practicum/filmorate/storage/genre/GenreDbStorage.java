@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
@@ -11,6 +13,8 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -31,6 +35,25 @@ public class GenreDbStorage implements GenreStorage {
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Жанр с id = " + id + " не найден");
         }
+    }
+
+    @Override
+    public Set<Genre> findByIds(Collection<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Set.of();
+        }
+
+        String sql = """
+                SELECT id, name
+                FROM genres
+                WHERE id IN (:ids)
+                ORDER BY id
+                """;
+
+        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+
+        return new LinkedHashSet<>(namedJdbcTemplate.query(sql, parameters, this::mapRowToGenre));
     }
 
     @Override

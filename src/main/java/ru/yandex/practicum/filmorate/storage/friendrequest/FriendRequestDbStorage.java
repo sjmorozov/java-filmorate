@@ -63,21 +63,16 @@ public class FriendRequestDbStorage implements FriendRequestStorage {
 
     @Override
     public void deleteByRequesterIdAndRecipientId(Long requesterId, Long recipientId) {
-        String sql = """
-                DELETE FROM friend_requests
-                WHERE requester_id = ?
-                AND recipient_id = ?
-                """;
-
-        int rowsAffected = jdbcTemplate.update(
-                sql,
-                requesterId,
-                recipientId
-        );
+        int rowsAffected = deleteFriendRequest(requesterId, recipientId);
 
         if (rowsAffected == 0) {
             throw new NotFoundException("Заявка в друзья не найдена");
         }
+    }
+
+    @Override
+    public boolean deleteIfExistsByRequesterIdAndRecipientId(Long requesterId, Long recipientId) {
+        return deleteFriendRequest(requesterId, recipientId) > 0;
     }
 
     @Override
@@ -144,5 +139,19 @@ public class FriendRequestDbStorage implements FriendRequestStorage {
         Long recipientId = rs.getLong("recipient_id");
 
         return new FriendRequest(requesterId, recipientId);
+    }
+
+    private int deleteFriendRequest(Long requesterId, Long recipientId) {
+        String sql = """
+                DELETE FROM friend_requests
+                WHERE requester_id = ?
+                AND recipient_id = ?
+                """;
+
+        return jdbcTemplate.update(
+                sql,
+                requesterId,
+                recipientId
+        );
     }
 }

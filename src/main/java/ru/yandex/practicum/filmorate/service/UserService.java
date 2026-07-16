@@ -48,9 +48,6 @@ public class UserService {
         validateId(id);
         userStorage.findById(id);
 
-        friendshipStorage.deleteAllByUserId(id);
-        friendRequestStorage.deleteAllByUserId(id);
-
         userStorage.delete(id);
         log.info("Пользователь с id = {} удалён", id);
     }
@@ -75,19 +72,13 @@ public class UserService {
             return;
         }
 
-        if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
-            friendRequestStorage.deleteByRequesterIdAndRecipientId(friendId, userId);
+        if (friendRequestStorage.deleteIfExistsByRequesterIdAndRecipientId(friendId, userId)) {
             friendshipStorage.save(Friendship.builder()
                     .firstUserId(userId)
                     .secondUserId(friendId)
                     .build());
 
             log.info("Пользователь {} подтвердил дружбу с пользователем {}", user.getLogin(), friend.getLogin());
-            return;
-        }
-
-        if (friendRequestStorage.existsByRequesterIdAndRecipientId(userId, friendId)) {
-            log.info("Пользователь {} уже отправил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
             return;
         }
 

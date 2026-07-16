@@ -86,6 +86,28 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void userStorageShouldDeleteRelatedFriendshipsAndRequestsByCascade() {
+        User firstUser = userStorage.add(createUser("neo"));
+        User secondUser = userStorage.add(createUser("morpheus"));
+        User thirdUser = userStorage.add(createUser("trinity"));
+
+        friendshipStorage.save(new Friendship(firstUser.getId(), secondUser.getId()));
+        friendRequestStorage.save(new FriendRequest(secondUser.getId(), thirdUser.getId()));
+
+        userStorage.delete(secondUser.getId());
+
+        assertThat(friendshipStorage.existsByUserIds(firstUser.getId(), secondUser.getId()))
+                .as("Подтверждённая дружба удалённого пользователя должна удалиться каскадом")
+                .isFalse();
+        assertThat(friendRequestStorage.existsByRequesterIdAndRecipientId(secondUser.getId(), thirdUser.getId()))
+                .as("Заявка удалённого пользователя должна удалиться каскадом")
+                .isFalse();
+        assertThat(friendshipStorage.findFriendIdsByUserId(firstUser.getId()))
+                .as("У оставшегося пользователя не должно остаться ссылки на удалённого друга")
+                .isEmpty();
+    }
+
+    @Test
     void filmStorageShouldCreateUpdateFindAndDeleteFilm() {
         Film film = filmStorage.add(createFilm("Matrix", 136, 1));
 
@@ -125,6 +147,16 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void genreStorageShouldFindGenresByIds() {
+        assertThat(genreStorage.findByIds(Set.of(1, 3, 6)))
+                .containsExactly(
+                        new Genre(1, "Комедия"),
+                        new Genre(3, "Мультфильм"),
+                        new Genre(6, "Боевик")
+                );
+    }
+
+    @Test
     void mpaRatingStorageShouldFindRatingsByIdAndFindAll() {
         MpaRating rating = mpaRatingStorage.findById(3);
 
@@ -151,6 +183,19 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void filmGenreStorageShouldFindGenresByFilmIds() {
+        Film firstFilm = filmStorage.add(createFilm("First Genre Film", 100, 1));
+        Film secondFilm = filmStorage.add(createFilm("Second Genre Film", 101, 1));
+
+        filmGenreStorage.replaceByFilmId(firstFilm.getId(), Set.of(new Genre(1, null), new Genre(3, null)));
+        filmGenreStorage.replaceByFilmId(secondFilm.getId(), Set.of(new Genre(2, null)));
+
+        assertThat(filmGenreStorage.findByFilmIds(Set.of(firstFilm.getId(), secondFilm.getId())))
+                .containsEntry(firstFilm.getId(), Set.of(new Genre(1, "Комедия"), new Genre(3, "Мультфильм")))
+                .containsEntry(secondFilm.getId(), Set.of(new Genre(2, "Драма")));
+    }
+
+    @Test
     void filmLikeStorageShouldAddFindAndDeleteLikes() {
         User user = userStorage.add(createUser("trinity"));
         Film film = filmStorage.add(createFilm("Liked Film", 120, 1));
@@ -164,6 +209,22 @@ class DbStorageIntegrationTest {
 
         assertThat(filmLikeStorage.findUserIdsByFilmId(film.getId()))
                 .isEmpty();
+    }
+
+    @Test
+    void filmLikeStorageShouldFindUserIdsByFilmIds() {
+        User firstUser = userStorage.add(createUser("trinity"));
+        User secondUser = userStorage.add(createUser("cypher"));
+        Film firstFilm = filmStorage.add(createFilm("First Liked Film", 120, 1));
+        Film secondFilm = filmStorage.add(createFilm("Second Liked Film", 121, 1));
+
+        filmLikeStorage.add(firstFilm.getId(), firstUser.getId());
+        filmLikeStorage.add(firstFilm.getId(), secondUser.getId());
+        filmLikeStorage.add(secondFilm.getId(), secondUser.getId());
+
+        assertThat(filmLikeStorage.findUserIdsByFilmIds(Set.of(firstFilm.getId(), secondFilm.getId())))
+                .containsEntry(firstFilm.getId(), Set.of(firstUser.getId(), secondUser.getId()))
+                .containsEntry(secondFilm.getId(), Set.of(secondUser.getId()));
     }
 
     @Test
@@ -188,6 +249,13 @@ class DbStorageIntegrationTest {
         friendRequestStorage.deleteByRequesterIdAndRecipientId(requester.getId(), recipient.getId());
 
         assertThat(friendRequestStorage.existsByRequesterIdAndRecipientId(requester.getId(), recipient.getId()))
+                .isFalse();
+
+        friendRequestStorage.save(new FriendRequest(requester.getId(), recipient.getId()));
+
+        assertThat(friendRequestStorage.deleteIfExistsByRequesterIdAndRecipientId(requester.getId(), recipient.getId()))
+                .isTrue();
+        assertThat(friendRequestStorage.deleteIfExistsByRequesterIdAndRecipientId(requester.getId(), recipient.getId()))
                 .isFalse();
 
         friendRequestStorage.deleteAllByUserId(recipient.getId());

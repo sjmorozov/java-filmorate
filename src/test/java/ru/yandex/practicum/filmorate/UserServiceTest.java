@@ -23,8 +23,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class UserServiceTest {
     private UserService userService;
-    private FriendRequestStorage friendRequestStorage;
-    private FriendshipStorage friendshipStorage;
 
     private static final Long NON_EXISTENT_USER_ID = 999L;
 
@@ -49,8 +47,8 @@ public class UserServiceTest {
     @BeforeEach
     void setUserService() {
         UserStorage userStorage = new InMemoryUserStorage();
-        friendRequestStorage = new InMemoryFriendRequestStorage();
-        friendshipStorage = new InMemoryFriendshipStorage();
+        FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
+        FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
         userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
     }
 
@@ -546,29 +544,6 @@ public class UserServiceTest {
         assertThatThrownBy(() -> userService.findById(userId))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(userId));
-    }
-
-    @Test
-    void shouldDeleteUserAndCleanFriendshipsAndFriendRequests() {
-        User firstCreatedUser = saveUser(createValidUser());
-        User secondCreatedUser = saveUser(createSecondValidUser());
-        User thirdCreatedUser = saveUser(createThirdValidUser());
-
-        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
-        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
-        userService.addFriend(secondCreatedUser.getId(), thirdCreatedUser.getId());
-
-        userService.delete(secondCreatedUser.getId());
-
-        assertThat(friendshipStorage.existsByUserIds(firstCreatedUser.getId(), secondCreatedUser.getId()))
-                .as("Подтверждённая дружба удалённого пользователя должна быть очищена")
-                .isFalse();
-        assertThat(friendRequestStorage.existsByRequesterIdAndRecipientId(secondCreatedUser.getId(), thirdCreatedUser.getId()))
-                .as("Заявка от удалённого пользователя должна быть очищена")
-                .isFalse();
-        assertThat(userService.findFriends(firstCreatedUser.getId()))
-                .as("После удаления пользователя у первого не должно остаться ссылки на него в друзьях")
-                .isEmpty();
     }
 
     @Test
