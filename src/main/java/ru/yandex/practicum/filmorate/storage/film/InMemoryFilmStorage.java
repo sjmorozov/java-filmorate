@@ -39,6 +39,14 @@ public class InMemoryFilmStorage implements FilmStorage {
     }
 
     @Override
+    public Collection<Film> findByIds(Collection<Long> ids) {
+        return ids.stream()
+                .filter(films::containsKey)
+                .map(films::get)
+                .toList();
+    }
+
+    @Override
     public Collection<Film> findAll() {
         return films.values();
     }

@@ -13,5 +13,7 @@ public interface FilmStorage {
 
     Film findById(Long id);
 
+    Collection<Film> findByIds(Collection<Long> ids);
+
     Collection<Film> findAll();
 }

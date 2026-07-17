@@ -95,4 +95,18 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
 
         return userIdsByFilmId;
     }
+
+    @Override
+    public List<Long> findPopularFilmIds(int count) {
+        String sql = """
+                SELECT f.id
+                FROM films AS f
+                LEFT JOIN film_likes AS l ON f.id = l.film_id
+                GROUP BY f.id
+                ORDER BY COUNT(l.user_id) DESC, f.id
+                LIMIT ?
+                """;
+
+        return jdbcTemplate.queryForList(sql, Long.class, count);
+    }
 }

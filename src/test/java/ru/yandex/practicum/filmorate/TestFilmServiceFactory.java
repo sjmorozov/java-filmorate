@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate;
 
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.service.FilmService;
@@ -12,8 +13,10 @@ import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,13 +27,15 @@ final class TestFilmServiceFactory {
     }
 
     static FilmService create(FilmStorage filmStorage, UserStorage userStorage) {
+        TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage);
+
         return new FilmService(
                 filmStorage,
                 userStorage,
                 new TestMpaRatingStorage(),
                 new TestGenreStorage(),
                 new TestFilmGenreStorage(),
-                new TestFilmLikeStorage()
+                filmLikeStorage
         );
     }
 
@@ -133,6 +138,11 @@ final class TestFilmServiceFactory {
 
     private static final class TestFilmLikeStorage implements FilmLikeStorage {
         private final Map<Long, Set<Long>> likesByFilmId = new LinkedHashMap<>();
+        private final FilmStorage filmStorage;
+
+        private TestFilmLikeStorage(FilmStorage filmStorage) {
+            this.filmStorage = filmStorage;
+        }
 
         @Override
         public void add(Long filmId, Long userId) {
@@ -171,6 +181,20 @@ final class TestFilmServiceFactory {
             }
 
             return result;
+        }
+
+        @Override
+        public List<Long> findPopularFilmIds(int count) {
+            Comparator<Film> likesComparator = Comparator
+                    .comparingInt((Film film) -> likesByFilmId.getOrDefault(film.getId(), Set.of()).size())
+                    .reversed()
+                    .thenComparing(Film::getId);
+
+            return filmStorage.findAll().stream()
+                    .sorted(likesComparator)
+                    .limit(count)
+                    .map(Film::getId)
+                    .toList();
         }
     }
 }

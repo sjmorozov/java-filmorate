@@ -23,6 +23,7 @@ import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,6 +138,16 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void filmStorageShouldFindFilmsByIds() {
+        Film firstFilm = filmStorage.add(createFilm("First Film", 100, 1));
+        Film secondFilm = filmStorage.add(createFilm("Second Film", 101, 2));
+
+        assertThat(filmStorage.findByIds(List.of(firstFilm.getId(), secondFilm.getId())))
+                .extracting(Film::getId)
+                .containsExactlyInAnyOrder(firstFilm.getId(), secondFilm.getId());
+    }
+
+    @Test
     void genreStorageShouldFindGenresByIdAndFindAll() {
         Genre comedy = genreStorage.findById(1);
 
@@ -225,6 +236,24 @@ class DbStorageIntegrationTest {
         assertThat(filmLikeStorage.findUserIdsByFilmIds(Set.of(firstFilm.getId(), secondFilm.getId())))
                 .containsEntry(firstFilm.getId(), Set.of(firstUser.getId(), secondUser.getId()))
                 .containsEntry(secondFilm.getId(), Set.of(secondUser.getId()));
+    }
+
+    @Test
+    void filmLikeStorageShouldFindPopularFilmIds() {
+        User firstUser = userStorage.add(createUser("trinity"));
+        User secondUser = userStorage.add(createUser("cypher"));
+        Film firstFilm = filmStorage.add(createFilm("Film Without Likes", 120, 1));
+        Film secondFilm = filmStorage.add(createFilm("Film With Two Likes", 121, 1));
+        Film thirdFilm = filmStorage.add(createFilm("Film With One Like", 122, 1));
+
+        filmLikeStorage.add(secondFilm.getId(), firstUser.getId());
+        filmLikeStorage.add(secondFilm.getId(), secondUser.getId());
+        filmLikeStorage.add(thirdFilm.getId(), firstUser.getId());
+
+        assertThat(filmLikeStorage.findPopularFilmIds(3))
+                .containsExactly(secondFilm.getId(), thirdFilm.getId(), firstFilm.getId());
+        assertThat(filmLikeStorage.findPopularFilmIds(2))
+                .containsExactly(secondFilm.getId(), thirdFilm.getId());
     }
 
     @Test

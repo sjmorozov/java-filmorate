@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -129,6 +132,31 @@ public class FilmDbStorage implements FilmStorage {
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Фильм с id = " + id + " не найден");
         }
+    }
+
+    @Override
+    public Collection<Film> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        String sql = """
+                SELECT f.id,
+                       f.name,
+                       f.description,
+                       f.release_date,
+                       f.duration,
+                       m.id AS mpa_id,
+                       m.name AS mpa_name
+                FROM films AS f
+                LEFT JOIN mpa_ratings AS m ON f.mpa_rating_id = m.id
+                WHERE f.id IN (:ids)
+                """;
+
+        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+
+        return namedJdbcTemplate.query(sql, parameters, this::mapRowToFilm);
     }
 
     @Override

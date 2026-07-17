@@ -18,11 +18,11 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -141,29 +141,14 @@ public class FilmService {
     }
 
     public Collection<Film> findPopular(int count) {
-        Collection<Film> films = filmStorage.findAll();
-
-        if (films.isEmpty()) {
-            return films;
-        }
-
-        List<Long> filmIds = getFilmIds(films);
-        Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(filmIds);
-        Comparator<Film> likesComparator = Comparator
-                .comparingInt((Film film) -> likesByFilmId.getOrDefault(film.getId(), Set.of()).size())
-                .reversed()
-                .thenComparing(Film::getId);
-        List<Film> popularFilms = films.stream()
-                .sorted(likesComparator)
-                .limit(count)
+        List<Long> popularFilmIds = filmLikeStorage.findPopularFilmIds(count);
+        Map<Long, Film> filmsById = filmStorage.findByIds(popularFilmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+        List<Film> popularFilms = popularFilmIds.stream()
+                .map(filmsById::get)
                 .toList();
 
-        Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(getFilmIds(popularFilms));
-        popularFilms.forEach(film -> {
-            Long filmId = film.getId();
-            film.setGenres(genresByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
-            film.setLikes(likesByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
-        });
+        loadFilmRelations(popularFilms);
 
         return popularFilms;
     }
