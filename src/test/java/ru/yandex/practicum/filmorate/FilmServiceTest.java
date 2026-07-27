@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
@@ -14,6 +16,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,10 +62,10 @@ public class FilmServiceTest {
     void setUp() {
         FilmStorage filmStorage = new InMemoryFilmStorage();
         userStorage = new InMemoryUserStorage();
-        filmService = new FilmService(filmStorage, userStorage);
+        filmService = TestFilmServiceFactory.create(filmStorage, userStorage);
     }
 
-    private Film createFilm(String name, String description, LocalDate releaseDate, int duration) {
+    private Film create(String name, String description, LocalDate releaseDate, int duration) {
         return Film.builder()
                 .name(name)
                 .description(description)
@@ -72,26 +75,26 @@ public class FilmServiceTest {
     }
 
     private Film createValidFilm() {
-        return createFilm(VALID_NAME, VALID_DESCRIPTION, VALID_RELEASE_DATE, VALID_DURATION);
+        return create(VALID_NAME, VALID_DESCRIPTION, VALID_RELEASE_DATE, VALID_DURATION);
     }
 
     private Film createSecondValidFilm() {
-        return createFilm(SECOND_FILM_NAME, SECOND_FILM_DESCRIPTION, SECOND_FILM_RELEASE_DATE, SECOND_FILM_DURATION);
+        return create(SECOND_FILM_NAME, SECOND_FILM_DESCRIPTION, SECOND_FILM_RELEASE_DATE, SECOND_FILM_DURATION);
     }
 
     private Film createThirdValidFilm() {
-        return createFilm(THIRD_FILM_NAME, THIRD_FILM_DESCRIPTION, THIRD_FILM_RELEASE_DATE, THIRD_FILM_DURATION);
+        return create(THIRD_FILM_NAME, THIRD_FILM_DESCRIPTION, THIRD_FILM_RELEASE_DATE, THIRD_FILM_DURATION);
     }
 
     private Film createFourthValidFilm() {
-        return createFilm(FOURTH_FILM_NAME, FOURTH_FILM_DESCRIPTION, FOURTH_FILM_RELEASE_DATE, FOURTH_FILM_DURATION);
+        return create(FOURTH_FILM_NAME, FOURTH_FILM_DESCRIPTION, FOURTH_FILM_RELEASE_DATE, FOURTH_FILM_DURATION);
     }
 
     private Film saveFilm(Film film) {
-        return filmService.createFilm(film);
+        return filmService.create(film);
     }
 
-    private User createUser(String login, String email) {
+    private User create(String login, String email) {
         return User.builder()
                 .email(email)
                 .login(login)
@@ -101,15 +104,15 @@ public class FilmServiceTest {
     }
 
     private User saveUser(User user) {
-        return userStorage.addUser(user);
+        return userStorage.add(user);
     }
 
     private User createFirstUser() {
-        return createUser(FIRST_USER_LOGIN, FIRST_USER_EMAIL);
+        return create(FIRST_USER_LOGIN, FIRST_USER_EMAIL);
     }
 
     private User createSecondUser() {
-        return createUser(SECOND_USER_LOGIN, SECOND_USER_EMAIL);
+        return create(SECOND_USER_LOGIN, SECOND_USER_EMAIL);
     }
 
     private static String filmNotFoundMessage(Long id) {
@@ -141,9 +144,28 @@ public class FilmServiceTest {
         assertThat(result.getId())
                 .as("Ожидается id = 1")
                 .isEqualTo(1L);
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Ожидается число фильмов 1")
                 .hasSize(1);
+    }
+
+    @Test
+    void shouldCreateFilmWithGenresAndMpaRating() {
+        Film film = createValidFilm();
+        Genre action = new Genre(6, "Боевик");
+        Genre animation = new Genre(3, "Мультфильм");
+        MpaRating pg13 = new MpaRating(3, "PG-13");
+        film.setGenres(Set.of(action, animation));
+        film.setMpa(pg13);
+
+        Film result = saveFilm(film);
+
+        assertThat(result.getGenres())
+                .as("Жанры фильма должны сохраниться")
+                .containsExactlyInAnyOrder(action, animation);
+        assertThat(result.getMpa())
+                .as("Рейтинг MPA должен сохраниться")
+                .isEqualTo(pg13);
     }
 
     @Test
@@ -156,7 +178,7 @@ public class FilmServiceTest {
         assertThat(result.getReleaseDate())
                 .as("Ожидается " + MIN_RELEASE_DATE)
                 .isEqualTo(MIN_RELEASE_DATE);
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Ожидается число фильмов 1")
                 .hasSize(1);
     }
@@ -170,7 +192,7 @@ public class FilmServiceTest {
                 .isInstanceOf(ValidationException.class)
                 .hasMessage("Дата релиза не может быть раньше " + MIN_RELEASE_DATE);
 
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Фильм с невалидной датой не должен быть сохранён")
                 .isEmpty();
     }
@@ -192,7 +214,7 @@ public class FilmServiceTest {
                 .duration(newDuration)
                 .build();
 
-        Film updatedFilm = filmService.updateFilm(filmForUpdate);
+        Film updatedFilm = filmService.update(filmForUpdate);
 
         assertThat(updatedFilm.getName())
                 .as("Ожидается новое название: " + newName)
@@ -209,7 +231,7 @@ public class FilmServiceTest {
         assertThat(updatedFilm.getId())
                 .as("Id фильма не должен измениться")
                 .isEqualTo(createdFilm.getId());
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Ожидается общее количество фильмов 1")
                 .hasSize(1);
     }
@@ -221,11 +243,11 @@ public class FilmServiceTest {
         Film shadowFilm = createValidFilm();
         shadowFilm.setId(0L);
 
-        assertThatThrownBy(() -> filmService.updateFilm(shadowFilm))
+        assertThatThrownBy(() -> filmService.update(shadowFilm))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(filmNotFoundMessage(0L));
 
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdFilm.getId())
@@ -240,11 +262,11 @@ public class FilmServiceTest {
         Film shadowFilm = createValidFilm();
         shadowFilm.setId(-1L);
 
-        assertThatThrownBy(() -> filmService.updateFilm(shadowFilm))
+        assertThatThrownBy(() -> filmService.update(shadowFilm))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(filmNotFoundMessage(-1L));
 
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdFilm.getId())
@@ -259,11 +281,11 @@ public class FilmServiceTest {
         Film shadowFilm = createValidFilm();
         shadowFilm.setId(NON_EXISTENT_FILM_ID);
 
-        assertThatThrownBy(() -> filmService.updateFilm(shadowFilm))
+        assertThatThrownBy(() -> filmService.update(shadowFilm))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(filmNotFoundMessage(NON_EXISTENT_FILM_ID));
 
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdFilm.getId())
@@ -282,7 +304,7 @@ public class FilmServiceTest {
         assertThat(secondCreatedFilm.getId())
                 .as("Ожидается id = 2")
                 .isEqualTo(2L);
-        assertThat(filmService.getAllFilms())
+        assertThat(filmService.findAll())
                 .as("Размер списка ожидается 2")
                 .hasSize(2);
     }
@@ -292,9 +314,9 @@ public class FilmServiceTest {
         Film film = saveFilm(createValidFilm());
         User user = saveUser(createFirstUser());
 
-        filmService.likeFilm(film.getId(), user.getId());
+        filmService.addLike(film.getId(), user.getId());
 
-        Film result = filmService.findFilmById(film.getId());
+        Film result = filmService.findById(film.getId());
 
         assertThat(result.getLikes())
                 .as("У фильма должен быть один лайк")
@@ -306,10 +328,10 @@ public class FilmServiceTest {
         Film film = saveFilm(createValidFilm());
         User user = saveUser(createFirstUser());
 
-        filmService.likeFilm(film.getId(), user.getId());
-        filmService.likeFilm(film.getId(), user.getId());
+        filmService.addLike(film.getId(), user.getId());
+        filmService.addLike(film.getId(), user.getId());
 
-        Film result = filmService.findFilmById(film.getId());
+        Film result = filmService.findById(film.getId());
 
         assertThat(result.getLikes())
                 .as("Один пользователь не должен поставить одному фильму два лайка")
@@ -321,10 +343,10 @@ public class FilmServiceTest {
         Film film = saveFilm(createValidFilm());
         User user = saveUser(createFirstUser());
 
-        filmService.likeFilm(film.getId(), user.getId());
+        filmService.addLike(film.getId(), user.getId());
         filmService.deleteLike(film.getId(), user.getId());
 
-        Film result = filmService.findFilmById(film.getId());
+        Film result = filmService.findById(film.getId());
 
         assertThat(result.getLikes())
                 .as("Лайк должен быть удалён")
@@ -340,11 +362,11 @@ public class FilmServiceTest {
         User firstUser = saveUser(createFirstUser());
         User secondUser = saveUser(createSecondUser());
 
-        filmService.likeFilm(secondFilm.getId(), firstUser.getId());
-        filmService.likeFilm(secondFilm.getId(), secondUser.getId());
-        filmService.likeFilm(thirdFilm.getId(), firstUser.getId());
+        filmService.addLike(secondFilm.getId(), firstUser.getId());
+        filmService.addLike(secondFilm.getId(), secondUser.getId());
+        filmService.addLike(thirdFilm.getId(), firstUser.getId());
 
-        List<Film> popularFilms = filmService.getPopularFilms(3).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(3).stream().toList();
 
         assertThat(popularFilms.get(0).getId())
                 .as("Первым должен быть фильм с двумя лайками")
@@ -364,9 +386,9 @@ public class FilmServiceTest {
 
         User user = saveUser(createFirstUser());
 
-        filmService.likeFilm(secondFilm.getId(), user.getId());
+        filmService.addLike(secondFilm.getId(), user.getId());
 
-        List<Film> popularFilms = filmService.getPopularFilms(1).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(1).stream().toList();
 
         assertThat(popularFilms)
                 .as("Должен вернуться только один фильм")
@@ -380,7 +402,7 @@ public class FilmServiceTest {
     void shouldThrowNotFoundExceptionWhenLikeFilmDoesNotExist() {
         User user = saveUser(createFirstUser());
 
-        assertThatThrownBy(() -> filmService.likeFilm(NON_EXISTENT_FILM_ID, user.getId()))
+        assertThatThrownBy(() -> filmService.addLike(NON_EXISTENT_FILM_ID, user.getId()))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(filmNotFoundMessage(NON_EXISTENT_FILM_ID));
     }
@@ -389,7 +411,7 @@ public class FilmServiceTest {
     void shouldThrowNotFoundExceptionWhenLikeUserDoesNotExist() {
         Film film = saveFilm(createValidFilm());
 
-        assertThatThrownBy(() -> filmService.likeFilm(film.getId(), NON_EXISTENT_USER_ID))
+        assertThatThrownBy(() -> filmService.addLike(film.getId(), NON_EXISTENT_USER_ID))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }

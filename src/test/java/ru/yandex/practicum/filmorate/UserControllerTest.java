@@ -5,6 +5,10 @@ import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
+import ru.yandex.practicum.filmorate.storage.friendrequest.InMemoryFriendRequestStorage;
+import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
+import ru.yandex.practicum.filmorate.storage.friendship.InMemoryFriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
@@ -23,7 +27,9 @@ public class UserControllerTest {
     @BeforeEach
     void setUserController() {
         UserStorage userStorage = new InMemoryUserStorage();
-        UserService userService = new UserService(userStorage);
+        FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
+        FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
+        UserService userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
         userController = new UserController(userService);
     }
 
@@ -40,13 +46,13 @@ public class UserControllerTest {
     void shouldCreateUserWithValidData() {
         User user = createValidUser();
 
-        User resultUser = userController.createUser(user);
+        User resultUser = userController.create(user);
 
         assertEquals(VALID_EMAIL, resultUser.getEmail(), "Ожидается имейл " + VALID_EMAIL);
         assertEquals(VALID_LOGIN, resultUser.getLogin(), "Ожидается логин " + VALID_LOGIN);
         assertEquals(VALID_NAME, resultUser.getName(), "Ожидается имя " + VALID_NAME);
         assertEquals(VALID_BIRTHDAY, resultUser.getBirthday(), "Ожидается дата рождения " + VALID_BIRTHDAY);
         assertEquals(1L, resultUser.getId(), "Ожидается Id = 1");
-        assertEquals(1, userController.getAllUsers().size(), "Ожидается общее количество пользователей 1");
+        assertEquals(1, userController.findAll().size(), "Ожидается общее количество пользователей 1");
     }
 }

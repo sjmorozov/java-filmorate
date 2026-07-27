@@ -4,8 +4,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
+import ru.yandex.practicum.filmorate.storage.friendrequest.InMemoryFriendRequestStorage;
+import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
+import ru.yandex.practicum.filmorate.storage.friendship.InMemoryFriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
@@ -21,6 +27,7 @@ public class UserServiceTest {
     private static final Long NON_EXISTENT_USER_ID = 999L;
 
     private static final String ID_REQUIRED_MESSAGE = "Id должен быть указан";
+    private static final String ID_MUST_BE_POSITIVE_MESSAGE = "Id должен быть положительным";
 
     private static final String VALID_EMAIL = "theone@zion.human";
     private static final String VALID_LOGIN = "theOne";
@@ -40,10 +47,12 @@ public class UserServiceTest {
     @BeforeEach
     void setUserService() {
         UserStorage userStorage = new InMemoryUserStorage();
-        userService = new UserService(userStorage);
+        FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
+        FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
+        userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
     }
 
-    private User createUser(String email, String login, String name, LocalDate birthday) {
+    private User create(String email, String login, String name, LocalDate birthday) {
         return User.builder()
                 .email(email)
                 .login(login)
@@ -53,19 +62,19 @@ public class UserServiceTest {
     }
 
     private User createValidUser() {
-        return createUser(VALID_EMAIL, VALID_LOGIN, VALID_NAME, VALID_BIRTHDAY);
+        return create(VALID_EMAIL, VALID_LOGIN, VALID_NAME, VALID_BIRTHDAY);
     }
 
     private User createSecondValidUser() {
-        return createUser(MORPHEUS_EMAIL, MORPHEUS_LOGIN, MORPHEUS_NAME, MORPHEUS_BIRTHDAY);
+        return create(MORPHEUS_EMAIL, MORPHEUS_LOGIN, MORPHEUS_NAME, MORPHEUS_BIRTHDAY);
     }
 
     private User createThirdValidUser() {
-        return createUser(TRINITY_EMAIL, TRINITY_LOGIN, TRINITY_NAME, TRINITY_BIRTHDAY);
+        return create(TRINITY_EMAIL, TRINITY_LOGIN, TRINITY_NAME, TRINITY_BIRTHDAY);
     }
 
     private User saveUser(User user) {
-        return userService.createUser(user);
+        return userService.create(user);
     }
 
     private static String userNotFoundMessage(Long id) {
@@ -78,6 +87,29 @@ public class UserServiceTest {
 
     private static String removeSelfFromFriendsMessage(Long id) {
         return "Пользователь не может удалить из друзей самого себя: id = " + id + ".";
+    }
+
+    private void assertRelationStatus(User firstUser, User secondUser, FriendRelationStatus expectedStatus) {
+        FriendRelationStatusResponse response = userService.findRelationStatus(firstUser.getId(), secondUser.getId());
+
+        assertThat(response.getFirstUserId())
+                .as("Id первого пользователя должен совпадать")
+                .isEqualTo(firstUser.getId());
+        assertThat(response.getFirstUserName())
+                .as("Имя первого пользователя должно совпадать")
+                .isEqualTo(firstUser.getName());
+        assertThat(response.getSecondUserId())
+                .as("Id второго пользователя должен совпадать")
+                .isEqualTo(secondUser.getId());
+        assertThat(response.getSecondUserName())
+                .as("Имя второго пользователя должно совпадать")
+                .isEqualTo(secondUser.getName());
+        assertThat(response.getStatus())
+                .as("Статус связи должен совпадать")
+                .isEqualTo(expectedStatus);
+        assertThat(response.getDescription())
+                .as("Описание должно быть человекочитаемым и содержать имена пользователей")
+                .contains(firstUser.getName(), secondUser.getName());
     }
 
     @Test
@@ -93,7 +125,7 @@ public class UserServiceTest {
         assertThat(resultUser.getName())
                 .as("Ожидается имя = логин " + VALID_LOGIN)
                 .isEqualTo(VALID_LOGIN);
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Ожидается общее количество пользователей 1")
                 .hasSize(1);
     }
@@ -111,7 +143,7 @@ public class UserServiceTest {
         assertThat(resultUser.getName())
                 .as("Ожидается имя = логин " + VALID_LOGIN)
                 .isEqualTo(VALID_LOGIN);
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Ожидается общее количество пользователей 1")
                 .hasSize(1);
     }
@@ -129,7 +161,7 @@ public class UserServiceTest {
         assertThat(resultUser.getName())
                 .as("Ожидается имя = логин " + VALID_LOGIN)
                 .isEqualTo(VALID_LOGIN);
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Ожидается общее количество пользователей 1")
                 .hasSize(1);
     }
@@ -144,7 +176,7 @@ public class UserServiceTest {
         LocalDate newBirthday = VALID_BIRTHDAY.plusYears(10);
         userForUpdate.setBirthday(newBirthday);
 
-        User updatedUser = userService.updateUser(userForUpdate);
+        User updatedUser = userService.update(userForUpdate);
 
         assertThat(updatedUser.getEmail())
                 .as("Ожидается старый имейл " + VALID_EMAIL)
@@ -161,7 +193,7 @@ public class UserServiceTest {
         assertThat(updatedUser.getId())
                 .as("Ожидается старый Id = 1")
                 .isEqualTo(1L);
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Ожидается общее количество пользователей 1")
                 .hasSize(1);
     }
@@ -182,7 +214,7 @@ public class UserServiceTest {
                 .birthday(VALID_BIRTHDAY)
                 .build();
 
-        User updatedUser = userService.updateUser(userForUpdate);
+        User updatedUser = userService.update(userForUpdate);
 
         assertThat(updatedUser.getEmail())
                 .as("Ожидается новый имейл " + newEmail)
@@ -196,7 +228,7 @@ public class UserServiceTest {
         assertThat(updatedUser.getId())
                 .as("Id пользователя не должен измениться")
                 .isEqualTo(createdUser.getId());
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Ожидается общее количество пользователей 1")
                 .hasSize(1);
     }
@@ -208,11 +240,11 @@ public class UserServiceTest {
         User shadowUser = createValidUser();
         shadowUser.setId(0L);
 
-        assertThatThrownBy(() -> userService.updateUser(shadowUser))
+        assertThatThrownBy(() -> userService.update(shadowUser))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage(ID_REQUIRED_MESSAGE);
+                .hasMessage(ID_MUST_BE_POSITIVE_MESSAGE);
 
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdUser.getId())
@@ -227,11 +259,11 @@ public class UserServiceTest {
         User shadowUser = createValidUser();
         shadowUser.setId(-1L);
 
-        assertThatThrownBy(() -> userService.updateUser(shadowUser))
+        assertThatThrownBy(() -> userService.update(shadowUser))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage(ID_REQUIRED_MESSAGE);
+                .hasMessage(ID_MUST_BE_POSITIVE_MESSAGE);
 
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdUser.getId())
@@ -246,11 +278,11 @@ public class UserServiceTest {
         User shadowUser = createValidUser();
         shadowUser.setId(NON_EXISTENT_USER_ID);
 
-        assertThatThrownBy(() -> userService.updateUser(shadowUser))
+        assertThatThrownBy(() -> userService.update(shadowUser))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
 
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Размер списка должен остаться без изменений")
                 .hasSize(1);
         assertThat(createdUser.getId())
@@ -269,77 +301,139 @@ public class UserServiceTest {
         assertThat(secondCreatedUser.getId())
                 .as("Ожидается Id = 2")
                 .isEqualTo(2L);
-        assertThat(userService.findAllUsers())
+        assertThat(userService.findAll())
                 .as("Размер списка ожидается 2")
                 .hasSize(2);
     }
 
     @Test
-    void shouldAddFriendBothWays() {
+    void shouldReturnNoRelationStatusWhenUsersHaveNoRelation() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.NO_RELATION);
+    }
+
+    @Test
+    void shouldReturnFirstRequestedSecondStatusWhenFirstUserSentRequest() {
         User firstCreatedUser = saveUser(createValidUser());
         User secondCreatedUser = saveUser(createSecondValidUser());
 
         userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
 
-        User updatedFirstUser = userService.findUserById(firstCreatedUser.getId());
-        User updatedSecondUser = userService.findUserById(secondCreatedUser.getId());
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.FIRST_REQUESTED_SECOND);
+    }
 
-        assertThat(updatedFirstUser.getFriends())
+    @Test
+    void shouldReturnSecondRequestedFirstStatusWhenSecondUserSentRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.SECOND_REQUESTED_FIRST);
+    }
+
+    @Test
+    void shouldReturnFriendsStatusWhenFriendshipConfirmed() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.FRIENDS);
+    }
+
+    @Test
+    void shouldConfirmFriendshipWhenBothUsersAddEachOther() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+
+        Set<User> firstUserFriends = userService.findFriends(firstCreatedUser.getId());
+        Set<User> secondUserFriends = userService.findFriends(secondCreatedUser.getId());
+
+        assertThat(firstUserFriends)
                 .as("Второй пользователь должен добавиться в друзья первому")
-                .contains(secondCreatedUser.getId());
-        assertThat(updatedSecondUser.getFriends())
+                .extracting(User::getId)
+                .containsExactly(secondCreatedUser.getId());
+        assertThat(secondUserFriends)
                 .as("Первый пользователь должен добавиться в друзья второму")
-                .contains(firstCreatedUser.getId());
-        assertThat(updatedFirstUser.getFriends())
-                .as("Количество друзей у первого пользователя должно быть 1")
-                .hasSize(1);
-        assertThat(updatedSecondUser.getFriends())
-                .as("Количество друзей у второго пользователя должно быть 1")
-                .hasSize(1);
+                .extracting(User::getId)
+                .containsExactly(firstCreatedUser.getId());
     }
 
     @Test
-    void shouldNotDuplicateFriendWhenAddedTwice() {
+    void shouldNotConfirmFriendshipWhenSameRequestAddedTwice() {
         User firstCreatedUser = saveUser(createValidUser());
         User secondCreatedUser = saveUser(createSecondValidUser());
 
         userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
         userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
 
-        User updatedFirstUser = userService.findUserById(firstCreatedUser.getId());
-        User updatedSecondUser = userService.findUserById(secondCreatedUser.getId());
-
-        assertThat(updatedFirstUser.getFriends())
-                .as("Второй пользователь должен добавиться в друзья первому один раз")
-                .contains(secondCreatedUser.getId());
-        assertThat(updatedSecondUser.getFriends())
-                .as("Первый пользователь должен добавиться в друзья второму один раз")
-                .contains(firstCreatedUser.getId());
-        assertThat(updatedFirstUser.getFriends())
-                .as("Количество друзей у первого пользователя должно быть 1")
-                .hasSize(1);
-        assertThat(updatedSecondUser.getFriends())
-                .as("Количество друзей у второго пользователя должно быть 1")
-                .hasSize(1);
+        assertThat(userService.findFriends(firstCreatedUser.getId()))
+                .as("Исходящая заявка должна быть видна в публичном списке друзей отправителя")
+                .extracting(User::getId)
+                .containsExactly(secondCreatedUser.getId());
+        assertThat(userService.findFriends(secondCreatedUser.getId()))
+                .as("Повторная заявка от первого пользователя не должна создавать дружбу для второго")
+                .isEmpty();
+        assertThat(userService.findRelationStatus(firstCreatedUser.getId(), secondCreatedUser.getId()).getStatus())
+                .as("Между пользователями должна остаться только заявка первого второму")
+                .isEqualTo(FriendRelationStatus.FIRST_REQUESTED_SECOND);
     }
 
     @Test
-    void shouldRemoveFriendBothWays() {
+    void shouldRemoveConfirmedFriendshipAndKeepReverseRequest() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+        userService.removeFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+
+        assertThat(userService.findFriends(firstCreatedUser.getId()))
+                .as("Количество друзей у первого пользователя должно быть 0")
+                .isEmpty();
+        assertThat(userService.findFriends(secondCreatedUser.getId()))
+                .as("После удаления дружбы обратная заявка должна быть видна второму пользователю")
+                .extracting(User::getId)
+                .containsExactly(firstCreatedUser.getId());
+        assertThat(userService.findRelationStatus(firstCreatedUser.getId(), secondCreatedUser.getId()).getStatus())
+                .as("После удаления дружбы второй пользователь должен остаться подписчиком первого")
+                .isEqualTo(FriendRelationStatus.SECOND_REQUESTED_FIRST);
+    }
+
+    @Test
+    void shouldCancelOutgoingFriendRequest() {
         User firstCreatedUser = saveUser(createValidUser());
         User secondCreatedUser = saveUser(createSecondValidUser());
 
         userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
         userService.removeFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
 
-        User updatedFirstUser = userService.findUserById(firstCreatedUser.getId());
-        User updatedSecondUser = userService.findUserById(secondCreatedUser.getId());
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.NO_RELATION);
+        assertThat(userService.findFriends(firstCreatedUser.getId()))
+                .as("Отменённая заявка не должна превращаться в дружбу")
+                .isEmpty();
+    }
 
-        assertThat(updatedFirstUser.getFriends())
-                .as("Количество друзей у первого пользователя должно быть 0")
-                .isEmpty();
-        assertThat(updatedSecondUser.getFriends())
-                .as("Количество друзей у второго пользователя должно быть 0")
-                .isEmpty();
+    @Test
+    void shouldNotChangeIncomingFriendRequestWhenRemovingFriend() {
+        User firstCreatedUser = saveUser(createValidUser());
+        User secondCreatedUser = saveUser(createSecondValidUser());
+
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
+        userService.removeFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+
+        assertRelationStatus(firstCreatedUser, secondCreatedUser, FriendRelationStatus.SECOND_REQUESTED_FIRST);
+        assertThat(userService.findFriends(secondCreatedUser.getId()))
+                .as("Входящая для первого заявка остаётся исходящей для второго")
+                .extracting(User::getId)
+                .containsExactly(firstCreatedUser.getId());
     }
 
     @Test
@@ -349,9 +443,11 @@ public class UserServiceTest {
         User thirdCreatedUser = saveUser(createThirdValidUser());
 
         userService.addFriend(firstCreatedUser.getId(), secondCreatedUser.getId());
+        userService.addFriend(secondCreatedUser.getId(), firstCreatedUser.getId());
         userService.addFriend(firstCreatedUser.getId(), thirdCreatedUser.getId());
+        userService.addFriend(thirdCreatedUser.getId(), firstCreatedUser.getId());
 
-        Set<User> resultFriends = userService.getUserFriends(firstCreatedUser.getId());
+        Set<User> resultFriends = userService.findFriends(firstCreatedUser.getId());
 
         assertThat(resultFriends)
                 .as("Список друзей должен состоять ровно из пользователей с ID второго и третьего")
@@ -366,9 +462,11 @@ public class UserServiceTest {
         User thirdCreatedUser = saveUser(createThirdValidUser());
 
         userService.addFriend(firstCreatedUser.getId(), thirdCreatedUser.getId());
+        userService.addFriend(thirdCreatedUser.getId(), firstCreatedUser.getId());
         userService.addFriend(secondCreatedUser.getId(), thirdCreatedUser.getId());
+        userService.addFriend(thirdCreatedUser.getId(), secondCreatedUser.getId());
 
-        Set<User> commonFriends = userService.getCommonFriends(firstCreatedUser.getId(), secondCreatedUser.getId());
+        Set<User> commonFriends = userService.findCommonFriends(firstCreatedUser.getId(), secondCreatedUser.getId());
 
         assertThat(commonFriends)
                 .as("Список общих друзей двух пользователей должен содержать только третьего пользователя")
@@ -441,9 +539,9 @@ public class UserServiceTest {
         User firstCreatedUser = saveUser(createValidUser());
         Long userId = firstCreatedUser.getId();
 
-        userService.deleteUser(userId);
+        userService.delete(userId);
 
-        assertThatThrownBy(() -> userService.findUserById(userId))
+        assertThatThrownBy(() -> userService.findById(userId))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(userId));
     }
@@ -453,7 +551,7 @@ public class UserServiceTest {
         User firstCreatedUser = saveUser(createValidUser());
         Long userId = firstCreatedUser.getId();
 
-        User foundUser = userService.findUserById(userId);
+        User foundUser = userService.findById(userId);
 
         assertThat(foundUser.getId())
                 .as("поле Id должно совпадать")
@@ -474,7 +572,7 @@ public class UserServiceTest {
 
     @Test
     void shouldThrowNotFoundExceptionWhenGetUserFriendsUserDoesNotExist() {
-        assertThatThrownBy(() -> userService.getUserFriends(NON_EXISTENT_USER_ID))
+        assertThatThrownBy(() -> userService.findFriends(NON_EXISTENT_USER_ID))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }
@@ -483,7 +581,7 @@ public class UserServiceTest {
     void shouldThrowNotFoundExceptionWhenGetCommonFriendsFirstUserDoesNotExist() {
         User existingUser = saveUser(createValidUser());
 
-        assertThatThrownBy(() -> userService.getCommonFriends(NON_EXISTENT_USER_ID, existingUser.getId()))
+        assertThatThrownBy(() -> userService.findCommonFriends(NON_EXISTENT_USER_ID, existingUser.getId()))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }
@@ -492,7 +590,7 @@ public class UserServiceTest {
     void shouldThrowNotFoundExceptionWhenGetCommonFriendsSecondUserDoesNotExist() {
         User existingUser = saveUser(createValidUser());
 
-        assertThatThrownBy(() -> userService.getCommonFriends(existingUser.getId(), NON_EXISTENT_USER_ID))
+        assertThatThrownBy(() -> userService.findCommonFriends(existingUser.getId(), NON_EXISTENT_USER_ID))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }

@@ -1,7 +1,7 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,47 +12,44 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
 
 import java.util.Collection;
 import java.util.Set;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/users")
 public class UserController {
 
     private final UserService userService;
 
-    @Autowired
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
     @PostMapping
-    public User createUser(@Valid @RequestBody User user) {
-        return userService.createUser(user);
+    public User create(@Valid @RequestBody User user) {
+        return userService.create(user);
     }
 
     @PutMapping
-    public User updateUser(@Valid @RequestBody User user) {
-        return userService.updateUser(user);
+    public User update(@Valid @RequestBody User user) {
+        return userService.update(user);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
+    public void delete(@PathVariable Long id) {
+        userService.delete(id);
     }
 
     @GetMapping("/{id}")
-    public User findUserById(@PathVariable Long id) {
-        return userService.findUserById(id);
+    public User findById(@PathVariable Long id) {
+        return userService.findById(id);
     }
 
     @GetMapping
-    public Collection<User> getAllUsers() {
-        return userService.findAllUsers();
+    public Collection<User> findAll() {
+        return userService.findAll();
     }
 
     @PutMapping("/{id}/friends/{friendId}")
@@ -66,13 +63,19 @@ public class UserController {
         userService.removeFriend(id, friendId);
     }
 
+    @GetMapping("/{id}/friends/{friendId}/status")
+    public FriendRelationStatusResponse findRelationStatus(@PathVariable Long id, @PathVariable Long friendId) {
+        return userService.findRelationStatus(id, friendId);
+    }
+
     @GetMapping("/{id}/friends")
-    public Set<User> getUserFriends(@PathVariable Long id) {
-        return userService.getUserFriends(id);
+    public Set<User> findFriends(@PathVariable Long id) {
+        // Возвращаем публичный список друзей: подтверждённые дружбы и исходящие заявки пользователя.
+        return userService.findFriends(id);
     }
 
     @GetMapping("/{id}/friends/common/{otherId}")
-    public Set<User> getCommonFriends(@PathVariable Long id, @PathVariable Long otherId) {
-        return userService.getCommonFriends(id, otherId);
+    public Set<User> findCommonFriends(@PathVariable Long id, @PathVariable Long otherId) {
+        return userService.findCommonFriends(id, otherId);
     }
 }

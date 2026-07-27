@@ -1,7 +1,6 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 
@@ -10,38 +9,45 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
-@Component
 public class InMemoryFilmStorage implements FilmStorage {
     private final Map<Long, Film> films = new HashMap<>();
 
     @Override
-    public Film addFilm(Film film) {
+    public Film add(Film film) {
         film.setId(getNextId());
         films.put(film.getId(), film);
         return film;
     }
 
     @Override
-    public Film updateFilm(Film film) {
+    public Film update(Film film) {
         checkFilmExists(film.getId());
         films.put(film.getId(), film);
         return film;
     }
 
     @Override
-    public void deleteFilm(Long id) {
+    public void delete(Long id) {
         checkFilmExists(id);
         films.remove(id);
     }
 
     @Override
-    public Film findFilmById(Long id) {
+    public Film findById(Long id) {
         checkFilmExists(id);
         return films.get(id);
     }
 
     @Override
-    public Collection<Film> findAllFilms() {
+    public Collection<Film> findByIds(Collection<Long> ids) {
+        return ids.stream()
+                .filter(films::containsKey)
+                .map(films::get)
+                .toList();
+    }
+
+    @Override
+    public Collection<Film> findAll() {
         return films.values();
     }
 

@@ -20,9 +20,9 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Film {
-    private Long id;
-
     private static final int MAX_DESCRIPTION_LENGTH = 200;
+
+    private Long id;
 
     @NotBlank(message = "Название должно быть указано")
     private String name;
@@ -33,11 +33,17 @@ public class Film {
     @NotNull(message = "Дата релиза должна быть указана")
     private LocalDate releaseDate;
 
-    @NotNull(message = "Продолжительность фильма должна быть положительным числом")
+    @NotNull(message = "Продолжительность фильма должна быть указана")
     @Positive(message = "Продолжительность фильма должна быть положительным числом")
     private Integer duration;
 
     @Builder.Default
     @JsonSetter(nulls = Nulls.AS_EMPTY)
     private Set<Long> likes = new HashSet<>();
+
+    @Builder.Default
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private Set<Genre> genres = new HashSet<>();
+
+    private MpaRating mpa;
 }

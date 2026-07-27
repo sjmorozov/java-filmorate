@@ -31,41 +31,41 @@ public class FilmController {
     private final FilmService filmService;
 
     @PostMapping
-    public Film createFilm(@Valid @RequestBody Film film) {
-        return filmService.createFilm(film);
+    public Film create(@Valid @RequestBody Film film) {
+        return filmService.create(film);
     }
 
     @PutMapping
-    public Film updateFilm(@RequestBody Film film) {
-        return filmService.updateFilm(film);
+    public Film update(@RequestBody Film film) {
+        return filmService.update(film);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void deleteFilm(@PathVariable Long id) {
-        filmService.deleteFilm(id);
+    public void delete(@PathVariable Long id) {
+        filmService.delete(id);
     }
 
     @GetMapping("/popular")
-    public Collection<Film> getPopularFilms(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT)
+    public Collection<Film> findPopular(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT)
                                             @Positive(message = "Параметр count должен быть больше нуля")
                                             int count) {
-        return filmService.getPopularFilms(count);
+        return filmService.findPopular(count);
     }
 
     @GetMapping("/{id}")
-    public Film findFilmById(@PathVariable Long id) {
-        return filmService.findFilmById(id);
+    public Film findById(@PathVariable Long id) {
+        return filmService.findById(id);
     }
 
     @GetMapping
-    public Collection<Film> getAllFilms() {
-        return filmService.getAllFilms();
+    public Collection<Film> findAll() {
+        return filmService.findAll();
     }
 
     @PutMapping("/{id}/like/{userId}")
-    public void likeFilm(@PathVariable Long id, @PathVariable Long userId) {
-        filmService.likeFilm(id, userId);
+    public void addLike(@PathVariable Long id, @PathVariable Long userId) {
+        filmService.addLike(id, userId);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
