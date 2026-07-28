@@ -140,8 +140,20 @@ public class FilmService {
         log.info("Пользователь {} убрал лайк с фильма {}", user.getName(), film.getName());
     }
 
-    public Collection<Film> findPopular(int count) {
-        List<Long> popularFilmIds = filmLikeStorage.findPopularFilmIds(count);
+    /**
+     * Возвращает топ-N фильмов по количеству лайков с опциональной фильтрацией по жанру и году релиза.
+     *
+     * @param count   максимальное число фильмов в ответе
+     * @param genreId если не null, в результат попадут только фильмы этого жанра
+     * @param year    если не null, в результат попадут только фильмы с этим годом релиза
+     * @throws NotFoundException   если жанр с genreId не существует
+     * @throws ValidationException если year выходит за диапазон [1895, текущий год]
+     */
+    public Collection<Film> findPopular(int count, Integer genreId, Integer year) {
+        validateGenreExists(genreId);
+        validatePopularYear(year);
+
+        List<Long> popularFilmIds = filmLikeStorage.findPopularFilmIds(count, genreId, year);
         Map<Long, Film> filmsById = filmStorage.findByIds(popularFilmIds).stream()
                 .collect(Collectors.toMap(Film::getId, Function.identity()));
         List<Film> popularFilms = popularFilmIds.stream()
@@ -151,6 +163,36 @@ public class FilmService {
         loadFilmRelations(popularFilms);
 
         return popularFilms;
+    }
+
+    /**
+     * Проверяет существование жанра, если он указан.
+     *
+     * @throws NotFoundException если жанр с genreId не найден
+     */
+    private void validateGenreExists(Integer genreId) {
+        if (genreId != null) {
+            genreStorage.findById(genreId);
+        }
+    }
+
+    /**
+     * Проверяет, что год, если он указан, не раньше появления кино и не позже текущего года.
+     *
+     * @throws ValidationException если year вне диапазона [1895, текущий год]
+     */
+    private void validatePopularYear(Integer year) {
+        if (year == null) {
+            return;
+        }
+
+        int currentYear = LocalDate.now().getYear();
+
+        if (year < MIN_RELEASE_DATE.getYear() || year > currentYear) {
+            log.warn("Год {} вне диапазона {}..{}", year, MIN_RELEASE_DATE.getYear(), currentYear);
+            throw new ValidationException(
+                    "Параметр year должен быть в диапазоне от " + MIN_RELEASE_DATE.getYear() + " до " + currentYear);
+        }
     }
 
     private void validateReleaseDate(LocalDate releaseDate) {

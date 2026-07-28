@@ -27,6 +27,7 @@ public class FilmServiceTest {
 
     private static final Long NON_EXISTENT_FILM_ID = 999L;
     private static final Long NON_EXISTENT_USER_ID = 999L;
+    private static final Integer NON_EXISTENT_GENRE_ID = 999;
 
     private static final String VALID_NAME = "Матрица";
     private static final String VALID_DESCRIPTION = "Человек узнаёт правду о реальности и выбирает красную таблетку.";
@@ -366,7 +367,7 @@ public class FilmServiceTest {
         filmService.addLike(secondFilm.getId(), secondUser.getId());
         filmService.addLike(thirdFilm.getId(), firstUser.getId());
 
-        List<Film> popularFilms = filmService.findPopular(3).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(3, null, null).stream().toList();
 
         assertThat(popularFilms.get(0).getId())
                 .as("Первым должен быть фильм с двумя лайками")
@@ -388,7 +389,7 @@ public class FilmServiceTest {
 
         filmService.addLike(secondFilm.getId(), user.getId());
 
-        List<Film> popularFilms = filmService.findPopular(1).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(1, null, null).stream().toList();
 
         assertThat(popularFilms)
                 .as("Должен вернуться только один фильм")
@@ -396,6 +397,108 @@ public class FilmServiceTest {
         assertThat(popularFilms.get(0).getId())
                 .as("Должен вернуться самый популярный фильм")
                 .isEqualTo(secondFilm.getId());
+    }
+
+    /**
+     * Фильм с не тем жанром не должен попадать в топ популярных при фильтрации по genreId.
+     */
+    @Test
+    void shouldFilterPopularFilmsByGenre() {
+        Film comedyFilm = createValidFilm();
+        comedyFilm.setGenres(Set.of(new Genre(1, "Комедия")));
+        Film savedComedyFilm = saveFilm(comedyFilm);
+
+        Film dramaFilm = createThirdValidFilm();
+        dramaFilm.setGenres(Set.of(new Genre(2, "Драма")));
+        Film savedDramaFilm = saveFilm(dramaFilm);
+
+        User user = saveUser(createFirstUser());
+        filmService.addLike(savedComedyFilm.getId(), user.getId());
+        filmService.addLike(savedDramaFilm.getId(), user.getId());
+
+        List<Film> popularFilms = filmService.findPopular(10, 1, null).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм с жанром Комедия")
+                .extracting(Film::getId)
+                .containsExactly(savedComedyFilm.getId());
+    }
+
+    /**
+     * Фильм с другим годом релиза не должен попадать в топ популярных при фильтрации по year.
+     */
+    @Test
+    void shouldFilterPopularFilmsByYear() {
+        Film filmFromTargetYear = saveFilm(createValidFilm());
+        saveFilm(createThirdValidFilm());
+
+        List<Film> popularFilms = filmService.findPopular(10, null, VALID_RELEASE_DATE.getYear()).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм с нужным годом релиза")
+                .extracting(Film::getId)
+                .containsExactly(filmFromTargetYear.getId());
+    }
+
+    /**
+     * При одновременной фильтрации по genreId и year должен остаться только фильм, подходящий под оба условия.
+     */
+    @Test
+    void shouldFilterPopularFilmsByGenreAndYear() {
+        Film matchingFilm = createValidFilm();
+        matchingFilm.setGenres(Set.of(new Genre(4, "Триллер")));
+        Film savedMatchingFilm = saveFilm(matchingFilm);
+
+        Film wrongYearFilm = createThirdValidFilm();
+        wrongYearFilm.setGenres(Set.of(new Genre(4, "Триллер")));
+        saveFilm(wrongYearFilm);
+
+        Film wrongGenreFilm = create(SECOND_FILM_NAME, SECOND_FILM_DESCRIPTION, VALID_RELEASE_DATE, SECOND_FILM_DURATION);
+        wrongGenreFilm.setGenres(Set.of(new Genre(2, "Драма")));
+        saveFilm(wrongGenreFilm);
+
+        List<Film> popularFilms = filmService.findPopular(10, 4, VALID_RELEASE_DATE.getYear()).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм, подходящий и по жанру, и по году")
+                .extracting(Film::getId)
+                .containsExactly(savedMatchingFilm.getId());
+    }
+
+    /**
+     * Несуществующий genreId в фильтре популярных фильмов должен приводить к NotFoundException.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenPopularGenreDoesNotExist() {
+        assertThatThrownBy(() -> filmService.findPopular(10, NON_EXISTENT_GENRE_ID, null))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Жанр с id = " + NON_EXISTENT_GENRE_ID + " не найден");
+    }
+
+    /**
+     * Год раньше появления кино (1895) в фильтре популярных фильмов должен приводить к ValidationException.
+     */
+    @Test
+    void shouldThrowValidationExceptionWhenPopularYearBeforeMinReleaseDate() {
+        int year = MIN_RELEASE_DATE.getYear() - 1;
+
+        assertThatThrownBy(() -> filmService.findPopular(10, null, year))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр year должен быть в диапазоне от " + MIN_RELEASE_DATE.getYear()
+                        + " до " + LocalDate.now().getYear());
+    }
+
+    /**
+     * Год из будущего в фильтре популярных фильмов должен приводить к ValidationException.
+     */
+    @Test
+    void shouldThrowValidationExceptionWhenPopularYearIsInFuture() {
+        int year = LocalDate.now().getYear() + 1;
+
+        assertThatThrownBy(() -> filmService.findPopular(10, null, year))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр year должен быть в диапазоне от " + MIN_RELEASE_DATE.getYear()
+                        + " до " + LocalDate.now().getYear());
     }
 
     @Test

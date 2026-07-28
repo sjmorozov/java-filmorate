@@ -14,5 +14,11 @@ public interface FilmLikeStorage {
 
     Map<Long, Set<Long>> findUserIdsByFilmIds(Collection<Long> filmIds);
 
-    List<Long> findPopularFilmIds(int count);
+    /**
+     * Возвращает id топ-N фильмов по количеству лайков, отсортированные по убыванию популярности.
+     *
+     * @param genreId если не null, учитываются только фильмы этого жанра
+     * @param year    если не null, учитываются только фильмы с этим годом релиза
+     */
+    List<Long> findPopularFilmIds(int count, Integer genreId, Integer year);
 }
