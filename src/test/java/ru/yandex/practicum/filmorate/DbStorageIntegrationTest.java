@@ -108,6 +108,24 @@ class DbStorageIntegrationTest {
                 .isEmpty();
     }
 
+    /**
+     * Лайки удалённого пользователя должны удаляться каскадом (fk_film_likes_user ON DELETE CASCADE),
+     * не оставляя "осиротевших" строк в film_likes.
+     */
+    @Test
+    void userStorageShouldDeleteRelatedLikesByCascade() {
+        User user = userStorage.add(createUser("neo"));
+        Film film = filmStorage.add(createFilm("Liked Film", 100, 1));
+
+        filmLikeStorage.add(film.getId(), user.getId());
+
+        userStorage.delete(user.getId());
+
+        assertThat(filmLikeStorage.findUserIdsByFilmId(film.getId()))
+                .as("Лайк удалённого пользователя не должен оставаться у фильма")
+                .isEmpty();
+    }
+
     @Test
     void filmStorageShouldCreateUpdateFindAndDeleteFilm() {
         Film film = filmStorage.add(createFilm("Matrix", 136, 1));
@@ -135,6 +153,28 @@ class DbStorageIntegrationTest {
 
         assertThatThrownBy(() -> filmStorage.findById(film.getId()))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    /**
+     * Жанры и лайки удалённого фильма должны удаляться каскадом
+     * (fk_film_genres_film / fk_film_likes_film ON DELETE CASCADE), не оставляя "осиротевших" строк.
+     */
+    @Test
+    void filmStorageShouldDeleteRelatedGenresAndLikesByCascade() {
+        User user = userStorage.add(createUser("neo"));
+        Film film = filmStorage.add(createFilm("Genre and Likes Film", 100, 1));
+
+        filmGenreStorage.replaceByFilmId(film.getId(), Set.of(new Genre(1, null)));
+        filmLikeStorage.add(film.getId(), user.getId());
+
+        filmStorage.delete(film.getId());
+
+        assertThat(filmGenreStorage.findByFilmId(film.getId()))
+                .as("Жанры удалённого фильма не должны оставаться в film_genres")
+                .isEmpty();
+        assertThat(filmLikeStorage.findUserIdsByFilmId(film.getId()))
+                .as("Лайки удалённого фильма не должны оставаться в film_likes")
+                .isEmpty();
     }
 
     @Test

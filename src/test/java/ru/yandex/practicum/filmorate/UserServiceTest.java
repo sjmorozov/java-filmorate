@@ -546,6 +546,16 @@ public class UserServiceTest {
                 .hasMessage(userNotFoundMessage(userId));
     }
 
+    /**
+     * Удаление несуществующего пользователя должно кидать NotFoundException, а не проходить молча.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenDeleteUserDoesNotExist() {
+        assertThatThrownBy(() -> userService.delete(NON_EXISTENT_USER_ID))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
+    }
+
     @Test
     void shouldFindUserById() {
         User firstCreatedUser = saveUser(createValidUser());
