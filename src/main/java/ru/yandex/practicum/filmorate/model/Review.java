@@ -2,7 +2,6 @@ package ru.yandex.practicum.filmorate.model;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,11 +25,9 @@ public class Review {
     private Boolean isPositive;
 
     @NotNull
-    @Positive(message = "Id пользователя должен быть положительным")
     private Long userId;
 
     @NotNull
-    @Positive(message = "Id фильма должен быть положительным")
     private Long filmId;
 
     private Integer useful;

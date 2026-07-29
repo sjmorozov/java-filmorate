@@ -65,11 +65,11 @@ class ReviewValidationTest {
 
     @ParameterizedTest
     @ValueSource(longs = {0, -1})
-    void shouldHaveUserIdViolationWhenIdIsNotPositive(long userId) {
+    void shouldDelegateNonPositiveUserIdCheckToService(long userId) {
         Review review = createValidReview();
         review.setUserId(userId);
 
-        assertHasViolationForField(review, "userId");
+        assertThat(validator.validate(review)).isEmpty();
     }
 
     @Test
@@ -82,11 +82,11 @@ class ReviewValidationTest {
 
     @ParameterizedTest
     @ValueSource(longs = {0, -1})
-    void shouldHaveFilmIdViolationWhenIdIsNotPositive(long filmId) {
+    void shouldDelegateNonPositiveFilmIdCheckToService(long filmId) {
         Review review = createValidReview();
         review.setFilmId(filmId);
 
-        assertHasViolationForField(review, "filmId");
+        assertThat(validator.validate(review)).isEmpty();
     }
 
     @Test
