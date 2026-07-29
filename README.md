@@ -15,7 +15,7 @@ Filmorate — учебное приложение на Spring Boot для раб
 - получение жанров через `GET /genres` и `GET /genres/{id}`;
 - получение рейтингов MPA через `GET /mpa` и `GET /mpa/{id}`;
 - сохранение и получение MPA и жанров у фильмов;
-- лайки фильмов и получение популярных фильмов;
+- лайки фильмов и получение популярных фильмов с фильтрацией по жанру и году релиза;
 - однонаправленное добавление в друзья для публичного API;
 - расширенная внутренняя модель заявок и подтверждённой дружбы;
 - интеграционные тесты DAO на `@JdbcTest` и `@AutoConfigureTestDatabase`;
@@ -170,7 +170,7 @@ GET    /films
 GET    /films/{id}
 PUT    /films/{id}/like/{userId}
 DELETE /films/{id}/like/{userId}
-GET    /films/popular?count=10
+GET    /films/popular?count=10&genreId={genreId}&year={year}
 ```
 
 ### Жанры

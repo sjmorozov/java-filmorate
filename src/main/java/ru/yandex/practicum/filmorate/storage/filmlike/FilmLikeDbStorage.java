@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -97,16 +98,31 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
     }
 
     @Override
-    public List<Long> findPopularFilmIds(int count) {
+    public List<Long> findPopularFilmIds(int count, Integer genreId, Integer year) {
         String sql = """
                 SELECT f.id
                 FROM films AS f
                 LEFT JOIN film_likes AS l ON f.id = l.film_id
+                WHERE (:genreId IS NULL OR EXISTS (
+                        SELECT 1 FROM film_genres AS fg
+                        WHERE fg.film_id = f.id AND fg.genre_id = :genreId
+                      ))
+                  AND (:year IS NULL OR (f.release_date >= :yearStart AND f.release_date < :yearEnd))
                 GROUP BY f.id
                 ORDER BY COUNT(l.user_id) DESC, f.id
-                LIMIT ?
+                LIMIT :count
                 """;
 
-        return jdbcTemplate.queryForList(sql, Long.class, count);
+        LocalDate yearStart = year != null ? LocalDate.of(year, 1, 1) : null;
+        LocalDate yearEnd = year != null ? LocalDate.of(year + 1, 1, 1) : null;
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("genreId", genreId)
+                .addValue("year", year)
+                .addValue("yearStart", yearStart)
+                .addValue("yearEnd", yearEnd)
+                .addValue("count", count);
+
+        return new NamedParameterJdbcTemplate(jdbcTemplate).queryForList(sql, parameters, Long.class);
     }
 }
