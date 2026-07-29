@@ -1,5 +1,6 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -12,6 +13,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
@@ -52,5 +54,22 @@ public class ErrorHandler {
                     .append(fieldError.getDefaultMessage());
         }
         return new ErrorResponse("Ошибка валидации", description.toString());
+    }
+
+    /**
+     * Обрабатывает нарушения аннотаций валидации (например, {@code @Positive}) на параметрах,
+     * переданных через {@code @RequestParam} или {@code @PathVariable}. Такие нарушения Spring
+     * выбрасывает как ConstraintViolationException, а не MethodArgumentNotValidException,
+     * поэтому им нужен отдельный обработчик — иначе они попадают в общий {@link #handleException}
+     * и возвращаются как 500 вместо 400.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleConstraintViolation(final ConstraintViolationException e) {
+        String description = e.getConstraintViolations().stream()
+                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                .collect(Collectors.joining("; "));
+
+        return new ErrorResponse("Ошибка валидации", description);
     }
 }

@@ -46,11 +46,24 @@ public class FilmController {
         filmService.delete(id);
     }
 
+    /**
+     * Возвращает топ-N фильмов по количеству лайков.
+     *
+     * @param count   максимальное число фильмов в ответе
+     * @param genreId если указан, в ответ попадут только фильмы этого жанра
+     * @param year    если указан, в ответ попадут только фильмы с этим годом релиза
+     */
     @GetMapping("/popular")
     public Collection<Film> findPopular(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT)
-                                            @Positive(message = "Параметр count должен быть больше нуля")
-                                            int count) {
-        return filmService.findPopular(count);
+                                        @Positive(message = "Параметр count должен быть больше нуля")
+                                        int count,
+                                        @RequestParam(required = false)
+                                        @Positive(message = "Параметр genreId должен быть больше нуля")
+                                        Integer genreId,
+                                        @RequestParam(required = false)
+                                        @Positive(message = "Параметр year должен быть больше нуля")
+                                        Integer year) {
+        return filmService.findPopular(count, genreId, year);
     }
 
     @GetMapping("/{id}")
@@ -73,4 +86,5 @@ public class FilmController {
     public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
         filmService.deleteLike(id, userId);
     }
+
 }

@@ -27,14 +27,15 @@ final class TestFilmServiceFactory {
     }
 
     static FilmService create(FilmStorage filmStorage, UserStorage userStorage) {
-        TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage);
+        TestFilmGenreStorage filmGenreStorage = new TestFilmGenreStorage();
+        TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage, filmGenreStorage);
 
         return new FilmService(
                 filmStorage,
                 userStorage,
                 new TestMpaRatingStorage(),
                 new TestGenreStorage(),
-                new TestFilmGenreStorage(),
+                filmGenreStorage,
                 filmLikeStorage
         );
     }
@@ -139,9 +140,11 @@ final class TestFilmServiceFactory {
     private static final class TestFilmLikeStorage implements FilmLikeStorage {
         private final Map<Long, Set<Long>> likesByFilmId = new LinkedHashMap<>();
         private final FilmStorage filmStorage;
+        private final TestFilmGenreStorage filmGenreStorage;
 
-        private TestFilmLikeStorage(FilmStorage filmStorage) {
+        private TestFilmLikeStorage(FilmStorage filmStorage, TestFilmGenreStorage filmGenreStorage) {
             this.filmStorage = filmStorage;
+            this.filmGenreStorage = filmGenreStorage;
         }
 
         @Override
@@ -184,13 +187,16 @@ final class TestFilmServiceFactory {
         }
 
         @Override
-        public List<Long> findPopularFilmIds(int count) {
+        public List<Long> findPopularFilmIds(int count, Integer genreId, Integer year) {
             Comparator<Film> likesComparator = Comparator
                     .comparingInt((Film film) -> likesByFilmId.getOrDefault(film.getId(), Set.of()).size())
                     .reversed()
                     .thenComparing(Film::getId);
 
             return filmStorage.findAll().stream()
+                    .filter(film -> genreId == null || filmGenreStorage.findByFilmId(film.getId()).stream()
+                            .anyMatch(genre -> genre.getId().equals(genreId)))
+                    .filter(film -> year == null || film.getReleaseDate().getYear() == year)
                     .sorted(likesComparator)
                     .limit(count)
                     .map(Film::getId)
