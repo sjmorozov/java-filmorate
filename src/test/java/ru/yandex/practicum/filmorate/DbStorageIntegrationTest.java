@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.model.FriendRequest;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreDbStorage;
@@ -20,6 +21,7 @@ import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestDbStorag
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipDbStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
 import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingDbStorage;
+import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
@@ -39,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         FilmGenreDbStorage.class,
         FilmLikeDbStorage.class,
         FriendRequestDbStorage.class,
-        FriendshipDbStorage.class
+        FriendshipDbStorage.class,
+        ReviewDbStorage.class
 })
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class DbStorageIntegrationTest {
@@ -61,6 +64,8 @@ class DbStorageIntegrationTest {
     private final FriendRequestDbStorage friendRequestStorage;
 
     private final FriendshipDbStorage friendshipStorage;
+
+    private final ReviewDbStorage reviewStorage;
 
     @Test
     void userStorageShouldCreateUpdateFindAndDeleteUser() {
@@ -254,6 +259,25 @@ class DbStorageIntegrationTest {
                 .containsExactly(secondFilm.getId(), thirdFilm.getId(), firstFilm.getId());
         assertThat(filmLikeStorage.findPopularFilmIds(2))
                 .containsExactly(secondFilm.getId(), thirdFilm.getId());
+    }
+
+    @Test
+    void reviewStorageShouldCreateAndFindReview() {
+        User user = userStorage.add(createUser("reviewer"));
+        Film film = filmStorage.add(createFilm("Reviewed Film", 120, 1));
+        Review review = Review.builder()
+                .content("A thoughtful review")
+                .isPositive(true)
+                .userId(user.getId())
+                .filmId(film.getId())
+                .build();
+
+        Review savedReview = reviewStorage.add(review);
+
+        assertThat(savedReview.getReviewId()).isPositive();
+        assertThat(savedReview.getUseful()).isZero();
+        assertThat(reviewStorage.findById(savedReview.getReviewId()))
+                .isEqualTo(savedReview);
     }
 
     @Test
