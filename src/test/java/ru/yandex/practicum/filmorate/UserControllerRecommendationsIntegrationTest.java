@@ -127,7 +127,7 @@ class UserControllerRecommendationsIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].name").value("Popular Film"));
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     private User createAndSaveUser(String email, String login) {

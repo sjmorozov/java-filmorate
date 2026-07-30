@@ -260,7 +260,7 @@ public class FilmService {
         Set<Long> userLikedFilmIds = filmLikeStorage.findFilmIdsByUserId(userId);
 
         if (userLikedFilmIds.isEmpty()) {
-            return findPopular(count, null, null);
+            return List.of();
         }
 
         MatrixData matrixData = buildCoOccurrenceMatrix();
@@ -272,7 +272,7 @@ public class FilmService {
         );
 
         if (recommendedFilmIds.isEmpty()) {
-            return getFallbackRecommendations(userLikedFilmIds, count);
+            return List.of();
         }
 
         return loadAndEnrichFilms(recommendedFilmIds);
@@ -366,15 +366,6 @@ public class FilmService {
         }
 
         return score;
-    }
-
-    private Collection<Film> getFallbackRecommendations(Set<Long> userLikedFilmIds, int count) {
-        Collection<Film> popularFilms = findPopular(count + userLikedFilmIds.size(), null, null);
-
-        return popularFilms.stream()
-                .filter(film -> !userLikedFilmIds.contains(film.getId()))
-                .limit(count)
-                .toList();
     }
 
     private List<Film> loadAndEnrichFilms(List<Long> filmIds) {

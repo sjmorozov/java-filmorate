@@ -35,9 +35,8 @@ class FilmServiceRecommendationsIntegrationTest {
         jdbcTemplate.update("DELETE FROM films");
         jdbcTemplate.update("DELETE FROM users");
     }
-
     @Test
-    void getRecommendations_whenUserHasNoLikes_shouldReturnPopularFilms() {
+    void getRecommendations_whenUserHasNoLikes_shouldReturnEmptyList() {
         User user1 = createAndSaveUser("user1@test.com", "user1");
         Film film1 = createAndSaveFilm("Film 1", 120);
         Film film2 = createAndSaveFilm("Film 2", 100);
@@ -51,7 +50,7 @@ class FilmServiceRecommendationsIntegrationTest {
 
         Collection<Film> recommendations = filmService.getRecommendations(user1.getId(), 10);
 
-        assertThat(recommendations).isNotEmpty();
+        assertThat(recommendations).isEmpty();
     }
 
     @Test
