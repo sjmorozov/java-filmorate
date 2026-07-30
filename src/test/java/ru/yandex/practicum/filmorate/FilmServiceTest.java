@@ -294,6 +294,33 @@ public class FilmServiceTest {
                 .isEqualTo(1L);
     }
 
+    /**
+     * После удаления фильм должен пропасть как из списка всех фильмов, так и по findById.
+     */
+    @Test
+    void shouldDeleteFilm() {
+        Film createdFilm = saveFilm(createValidFilm());
+
+        filmService.delete(createdFilm.getId());
+
+        assertThatThrownBy(() -> filmService.findById(createdFilm.getId()))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(createdFilm.getId()));
+        assertThat(filmService.findAll())
+                .as("Удалённый фильм не должен оставаться в списке")
+                .isEmpty();
+    }
+
+    /**
+     * Удаление несуществующего фильма должно кидать NotFoundException, а не проходить молча.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenDeleteFilmDoesNotExist() {
+        assertThatThrownBy(() -> filmService.delete(NON_EXISTENT_FILM_ID))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(NON_EXISTENT_FILM_ID));
+    }
+
     @Test
     void shouldAssignIncrementalIdsWhenSeveralFilmsCreated() {
         Film firstCreatedFilm = saveFilm(createValidFilm());
