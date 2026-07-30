@@ -17,11 +17,7 @@ import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -258,5 +254,138 @@ public class FilmService {
                 .ifPresent(id -> {
                     throw new NotFoundException("Жанр с id = " + id + " не найден");
                 });
+    }
+
+    public Collection<Film> getRecommendations(Long userId, int count) {
+        Set<Long> userLikedFilmIds = filmLikeStorage.findFilmIdsByUserId(userId);
+
+        if (userLikedFilmIds.isEmpty()) {
+            return findPopular(count, null, null);
+        }
+
+        MatrixData matrixData = buildCoOccurrenceMatrix();
+
+        List<Long> recommendedFilmIds = calculateRecommendationScores(
+                userLikedFilmIds,
+                matrixData,
+                count
+        );
+
+        if (recommendedFilmIds.isEmpty()) {
+            return getFallbackRecommendations(userLikedFilmIds, count);
+        }
+
+        return loadAndEnrichFilms(recommendedFilmIds);
+    }
+
+    private static class MatrixData {
+        final Map<Long, Integer> filmLikeCounts;
+        final Map<Long, Map<Long, Integer>> coOccurrences;
+
+        MatrixData(Map<Long, Integer> filmLikeCounts, Map<Long, Map<Long, Integer>> coOccurrences) {
+            this.filmLikeCounts = filmLikeCounts;
+            this.coOccurrences = coOccurrences;
+        }
+    }
+
+    private MatrixData buildCoOccurrenceMatrix() {
+        Map<Long, Set<Long>> allLikesByUser = filmLikeStorage.findAllFilmIdsGroupedByUser();
+        Map<Long, Integer> filmLikeCounts = new HashMap<>();
+        Map<Long, Map<Long, Integer>> coOccurrences = new HashMap<>();
+
+        for (Set<Long> likedFilms : allLikesByUser.values()) {
+            List<Long> likedFilmsList = new ArrayList<>(likedFilms);
+
+            for (int i = 0; i < likedFilmsList.size(); i++) {
+                Long filmI = likedFilmsList.get(i);
+                filmLikeCounts.merge(filmI, 1, Integer::sum);
+
+                for (int j = i + 1; j < likedFilmsList.size(); j++) {
+                    Long filmJ = likedFilmsList.get(j);
+
+                    coOccurrences
+                            .computeIfAbsent(filmI, k -> new HashMap<>())
+                            .merge(filmJ, 1, Integer::sum);
+                    coOccurrences
+                            .computeIfAbsent(filmJ, k -> new HashMap<>())
+                            .merge(filmI, 1, Integer::sum);
+                }
+            }
+        }
+
+        return new MatrixData(filmLikeCounts, coOccurrences);
+    }
+
+    private List<Long> calculateRecommendationScores(
+            Set<Long> userLikedFilmIds,
+            MatrixData matrixData,
+            int count) {
+
+        Map<Long, Double> filmScores = new HashMap<>();
+
+        for (Long candidateFilmId : matrixData.filmLikeCounts.keySet()) {
+            if (userLikedFilmIds.contains(candidateFilmId)) {
+                continue;
+            }
+
+            double score = calculateScoreForFilm(
+                    candidateFilmId,
+                    userLikedFilmIds,
+                    matrixData
+            );
+
+            if (score > 0) {
+                filmScores.put(candidateFilmId, score);
+            }
+        }
+
+        return filmScores.entrySet().stream()
+                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
+                .limit(count)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private double calculateScoreForFilm(
+            Long candidateFilmId,
+            Set<Long> userLikedFilmIds,
+            MatrixData matrixData) {
+
+        double score = 0.0;
+
+        for (Long likedFilmId : userLikedFilmIds) {
+            int coOccurrence = matrixData.coOccurrences
+                    .getOrDefault(likedFilmId, Collections.emptyMap())
+                    .getOrDefault(candidateFilmId, 0);
+
+            int totalLikes = matrixData.filmLikeCounts.get(likedFilmId);
+
+            if (totalLikes > 0) {
+                score += (double) coOccurrence / totalLikes;
+            }
+        }
+
+        return score;
+    }
+
+    private Collection<Film> getFallbackRecommendations(Set<Long> userLikedFilmIds, int count) {
+        Collection<Film> popularFilms = findPopular(count + userLikedFilmIds.size(), null, null);
+
+        return popularFilms.stream()
+                .filter(film -> !userLikedFilmIds.contains(film.getId()))
+                .limit(count)
+                .toList();
+    }
+
+    private List<Film> loadAndEnrichFilms(List<Long> filmIds) {
+        Map<Long, Film> filmsById = filmStorage.findByIds(filmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+
+        List<Film> films = filmIds.stream()
+                .map(filmsById::get)
+                .toList();
+
+        loadFilmRelations(films);
+        return films;
     }
 }

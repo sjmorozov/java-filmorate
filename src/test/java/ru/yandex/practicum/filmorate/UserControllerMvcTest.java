@@ -7,6 +7,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
 
 import static org.mockito.Mockito.doThrow;
@@ -23,6 +24,9 @@ class UserControllerMvcTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private FilmService filmService;
 
     /**
      * DELETE /users/{id} должен возвращать 204 No Content — это HTTP-контракт из @ResponseStatus,
