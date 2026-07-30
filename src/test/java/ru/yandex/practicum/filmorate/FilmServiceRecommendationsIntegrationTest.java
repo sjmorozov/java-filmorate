@@ -35,7 +35,7 @@ class FilmServiceRecommendationsIntegrationTest {
         jdbcTemplate.update("DELETE FROM films");
         jdbcTemplate.update("DELETE FROM users");
     }
-    
+
     @Test
     void getRecommendations_whenUserHasNoLikes_shouldReturnEmptyList() {
         User user1 = createAndSaveUser("user1@test.com", "user1");
