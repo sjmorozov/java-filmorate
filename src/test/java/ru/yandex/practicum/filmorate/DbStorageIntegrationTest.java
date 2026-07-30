@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.model.FriendRequest;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreDbStorage;
@@ -20,6 +21,8 @@ import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestDbStorag
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipDbStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
 import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingDbStorage;
+import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
+import ru.yandex.practicum.filmorate.storage.reviewreaction.ReviewReactionDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
@@ -39,7 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         FilmGenreDbStorage.class,
         FilmLikeDbStorage.class,
         FriendRequestDbStorage.class,
-        FriendshipDbStorage.class
+        FriendshipDbStorage.class,
+        ReviewDbStorage.class,
+        ReviewReactionDbStorage.class
 })
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class DbStorageIntegrationTest {
@@ -61,6 +66,10 @@ class DbStorageIntegrationTest {
     private final FriendRequestDbStorage friendRequestStorage;
 
     private final FriendshipDbStorage friendshipStorage;
+
+    private final ReviewDbStorage reviewStorage;
+
+    private final ReviewReactionDbStorage reviewReactionStorage;
 
     @Test
     void userStorageShouldCreateUpdateFindAndDeleteUser() {
@@ -305,6 +314,101 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void reviewStorageShouldCreateAndFindReview() {
+        User user = userStorage.add(createUser("reviewer"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = Review.builder()
+                .content("Очень содержательный отзыв")
+                .isPositive(true)
+                .userId(user.getId())
+                .filmId(film.getId())
+                .build();
+
+        Review savedReview = reviewStorage.add(review);
+
+        assertThat(savedReview.getReviewId()).isPositive();
+        assertThat(savedReview.getUseful()).isZero();
+        assertThat(reviewStorage.findById(savedReview.getReviewId()))
+                .isEqualTo(savedReview);
+    }
+
+    @Test
+    void reviewStorageShouldUpdateAndDeleteReview() {
+        User user = userStorage.add(createUser("reviewer"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = reviewStorage.add(createReview(user.getId(), film.getId(), "Первоначальный отзыв", true));
+
+        review.setContent("Обновлённый отзыв");
+        review.setIsPositive(false);
+
+        Review updatedReview = reviewStorage.update(review);
+
+        assertThat(updatedReview.getContent()).isEqualTo("Обновлённый отзыв");
+        assertThat(updatedReview.getIsPositive()).isFalse();
+        assertThat(updatedReview.getUserId()).isEqualTo(user.getId());
+        assertThat(updatedReview.getFilmId()).isEqualTo(film.getId());
+
+        reviewStorage.delete(review.getReviewId());
+
+        assertThatThrownBy(() -> reviewStorage.findById(review.getReviewId()))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void reviewStorageShouldFilterSortAndLimitReviewsByUsefulness() {
+        User author = userStorage.add(createUser("reviewer"));
+        User firstReactor = userStorage.add(createUser("first-reactor"));
+        User secondReactor = userStorage.add(createUser("second-reactor"));
+        Film firstFilm = filmStorage.add(createFilm("Первый фильм с отзывами", 120, 1));
+        Film secondFilm = filmStorage.add(createFilm("Второй фильм с отзывами", 121, 1));
+
+        Review usefulReview = reviewStorage.add(
+                createReview(author.getId(), firstFilm.getId(), "Полезный отзыв", true)
+        );
+        Review dislikedReview = reviewStorage.add(
+                createReview(author.getId(), firstFilm.getId(), "Неполезный отзыв", false)
+        );
+        Review otherFilmReview = reviewStorage.add(
+                createReview(author.getId(), secondFilm.getId(), "Отзыв к другому фильму", true)
+        );
+
+        reviewReactionStorage.save(usefulReview.getReviewId(), firstReactor.getId(), true);
+        reviewReactionStorage.save(usefulReview.getReviewId(), secondReactor.getId(), true);
+        reviewReactionStorage.save(dislikedReview.getReviewId(), firstReactor.getId(), false);
+
+        assertThat(reviewStorage.findMostUseful(firstFilm.getId(), 10))
+                .extracting(Review::getReviewId)
+                .containsExactly(usefulReview.getReviewId(), dislikedReview.getReviewId());
+        assertThat(reviewStorage.findMostUseful(firstFilm.getId(), 1))
+                .extracting(Review::getReviewId)
+                .containsExactly(usefulReview.getReviewId());
+        assertThat(reviewStorage.findMostUseful(null, 10))
+                .extracting(Review::getReviewId)
+                .containsExactly(
+                        usefulReview.getReviewId(),
+                        otherFilmReview.getReviewId(),
+                        dislikedReview.getReviewId()
+                );
+    }
+
+    @Test
+    void reviewReactionStorageShouldReplaceAndDeleteReaction() {
+        User author = userStorage.add(createUser("reviewer"));
+        User reactor = userStorage.add(createUser("reactor"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = reviewStorage.add(createReview(author.getId(), film.getId(), "Отзыв", true));
+
+        reviewReactionStorage.save(review.getReviewId(), reactor.getId(), true);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isEqualTo(1);
+
+        reviewReactionStorage.save(review.getReviewId(), reactor.getId(), false);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isEqualTo(-1);
+
+        reviewReactionStorage.delete(review.getReviewId(), reactor.getId(), false);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isZero();
+    }
+
+    @Test
     void friendRequestStorageShouldSaveFindDeleteAndCleanRequests() {
         User requester = userStorage.add(createUser("morpheus"));
         User recipient = userStorage.add(createUser("oracle"));
@@ -388,6 +492,15 @@ class DbStorageIntegrationTest {
                 .releaseDate(releaseDate)
                 .duration(duration)
                 .mpa(new MpaRating(mpaId, null))
+                .build();
+    }
+
+    private Review createReview(Long userId, Long filmId, String content, boolean isPositive) {
+        return Review.builder()
+                .content(content)
+                .isPositive(isPositive)
+                .userId(userId)
+                .filmId(filmId)
                 .build();
     }
 }
