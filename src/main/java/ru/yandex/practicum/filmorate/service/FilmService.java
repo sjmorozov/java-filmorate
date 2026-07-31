@@ -265,17 +265,13 @@ public class FilmService {
 
         MatrixData matrixData = buildCoOccurrenceMatrix();
 
-        List<Long> recommendedFilmIds = calculateRecommendationScores(
-                userLikedFilmIds,
-                matrixData,
-                count
-        );
+        Map<Long, Double> filmScores = calculateRecommendationScores(userLikedFilmIds, matrixData);
 
-        if (recommendedFilmIds.isEmpty()) {
+        if (filmScores.isEmpty()) {
             return List.of();
         }
 
-        return loadAndEnrichFilms(recommendedFilmIds);
+        return loadAndEnrichFilms(filmScores, count);
     }
 
     private static class MatrixData {
@@ -316,10 +312,8 @@ public class FilmService {
         return new MatrixData(filmLikeCounts, coOccurrences);
     }
 
-    private List<Long> calculateRecommendationScores(
-            Set<Long> userLikedFilmIds,
-            MatrixData matrixData,
-            int count) {
+    private Map<Long, Double> calculateRecommendationScores(
+            Set<Long> userLikedFilmIds, MatrixData matrixData) {
 
         Map<Long, Double> filmScores = new HashMap<>();
 
@@ -339,11 +333,7 @@ public class FilmService {
             }
         }
 
-        return filmScores.entrySet().stream()
-                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                .limit(count)
-                .map(Map.Entry::getKey)
-                .toList();
+        return filmScores;
     }
 
     private double calculateScoreForFilm(
@@ -368,15 +358,28 @@ public class FilmService {
         return score;
     }
 
-    private List<Film> loadAndEnrichFilms(List<Long> filmIds) {
+    private List<Film> loadAndEnrichFilms(Map<Long, Double> filmScores, int count) {
+        List<Long> filmIds = new ArrayList<>(filmScores.keySet());
+
         Map<Long, Film> filmsById = filmStorage.findByIds(filmIds).stream()
                 .collect(Collectors.toMap(Film::getId, Function.identity()));
 
-        List<Film> films = filmIds.stream()
+        return filmIds.stream()
                 .map(filmsById::get)
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparingDouble((Film f) -> filmScores.get(f.getId())).reversed()
+                                .thenComparing(Film::getName, Comparator.nullsLast(Comparator.naturalOrder()))
+                                .thenComparing(Film::getId))
+                .limit(count)
+                .peek(this::loadSingleFilmRelations)
                 .toList();
+    }
 
-        loadFilmRelations(films);
-        return films;
+    private void loadSingleFilmRelations(Film film) {
+        Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(List.of(film.getId()));
+        Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(List.of(film.getId()));
+
+        film.setGenres(genresByFilmId.getOrDefault(film.getId(), new LinkedHashSet<>()));
+        film.setLikes(likesByFilmId.getOrDefault(film.getId(), new LinkedHashSet<>()));
     }
 }
