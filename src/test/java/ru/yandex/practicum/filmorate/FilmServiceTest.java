@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
@@ -167,6 +168,76 @@ public class FilmServiceTest {
         assertThat(result.getMpa())
                 .as("Рейтинг MPA должен сохраниться")
                 .isEqualTo(pg13);
+    }
+
+    @Test
+    void shouldCreateFilmWithDirectors() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(
+                new Director(1L, null),
+                new Director(2L, null)
+        ));
+
+        Film result = saveFilm(film);
+
+        assertThat(result.getDirectors())
+                .as("Режиссёры фильма должны сохраниться с именами из справочника")
+                .containsExactlyInAnyOrder(
+                        new Director(1L, "Андрей Тарковский"),
+                        new Director(2L, "Кристофер Нолан")
+                );
+        assertThat(filmService.findById(result.getId()).getDirectors())
+                .as("Режиссёры должны загружаться при повторном получении фильма")
+                .containsExactlyInAnyOrderElementsOf(result.getDirectors());
+    }
+
+    @Test
+    void shouldReplaceFilmDirectorsOnUpdate() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(1L, null)));
+        Film createdFilm = saveFilm(film);
+
+        Film filmForUpdate = Film.builder()
+                .id(createdFilm.getId())
+                .directors(Set.of(new Director(2L, null)))
+                .build();
+
+        Film updatedFilm = filmService.update(filmForUpdate);
+
+        assertThat(updatedFilm.getDirectors())
+                .as("После обновления у фильма должен остаться новый режиссёр")
+                .containsExactly(new Director(2L, "Кристофер Нолан"));
+    }
+
+    @Test
+    void shouldPreserveFilmDirectorsWhenUpdateDoesNotContainDirectors() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(1L, null)));
+        Film createdFilm = saveFilm(film);
+
+        Film filmForUpdate = Film.builder()
+                .id(createdFilm.getId())
+                .name("Новое название")
+                .build();
+
+        Film updatedFilm = filmService.update(filmForUpdate);
+
+        assertThat(updatedFilm.getDirectors())
+                .as("Пропущенное поле directors не должно очищать существующую связь")
+                .containsExactly(new Director(1L, "Андрей Тарковский"));
+    }
+
+    @Test
+    void shouldThrowNotFoundExceptionWhenDirectorDoesNotExist() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(999L, null)));
+
+        assertThatThrownBy(() -> saveFilm(film))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Режиссёр с id = 999 не найден");
+        assertThat(filmService.findAll())
+                .as("Фильм с неизвестным режиссёром не должен быть сохранён")
+                .isEmpty();
     }
 
     @Test
