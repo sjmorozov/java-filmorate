@@ -125,4 +125,23 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
 
         return new NamedParameterJdbcTemplate(jdbcTemplate).queryForList(sql, parameters, Long.class);
     }
+
+    @Override
+    public List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId) {
+        String sql = """
+                SELECT common.film_id
+                FROM (
+                    SELECT film_id
+                    FROM film_likes
+                    WHERE user_id IN (?, ?)
+                    GROUP BY film_id
+                    HAVING COUNT(DISTINCT user_id) = 2
+                ) AS common
+                LEFT JOIN film_likes AS all_likes ON common.film_id = all_likes.film_id
+                GROUP BY common.film_id
+                ORDER BY COUNT(all_likes.user_id) DESC, common.film_id ASC
+                """;
+
+        return jdbcTemplate.queryForList(sql, Long.class, userId, friendId);
+    }
 }

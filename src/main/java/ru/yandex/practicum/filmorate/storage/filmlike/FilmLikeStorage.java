@@ -21,4 +21,6 @@ public interface FilmLikeStorage {
      * @param year    если не null, учитываются только фильмы с этим годом релиза
      */
     List<Long> findPopularFilmIds(int count, Integer genreId, Integer year);
+
+    List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId);
 }

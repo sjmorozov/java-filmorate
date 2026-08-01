@@ -17,11 +17,7 @@ import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -258,5 +254,28 @@ public class FilmService {
                 .ifPresent(id -> {
                     throw new NotFoundException("Жанр с id = " + id + " не найден");
                 });
+    }
+
+    public Collection<Film> findCommonFilms(Long userId, Long friendId) {
+        userStorage.findById(userId);
+        userStorage.findById(friendId);
+
+        List<Long> commonFilmIds = filmLikeStorage.findCommonFilmIdsSortedByPopularity(userId, friendId);
+
+        if (commonFilmIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Film> filmsById = filmStorage.findByIds(commonFilmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+
+        List<Film> commonFilms = commonFilmIds.stream()
+                .map(filmsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        loadFilmRelations(commonFilms);
+
+        return commonFilms;
     }
 }
