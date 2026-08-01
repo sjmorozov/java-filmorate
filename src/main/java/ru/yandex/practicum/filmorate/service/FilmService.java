@@ -256,7 +256,7 @@ public class FilmService {
                 });
     }
 
-    public Collection<Film> getRecommendations(Long userId, int count) {
+    public Collection<Film> getRecommendations(Long userId) {
         Set<Long> userLikedFilmIds = filmLikeStorage.findFilmIdsByUserId(userId);
 
         if (userLikedFilmIds.isEmpty()) {
@@ -271,7 +271,7 @@ public class FilmService {
             return List.of();
         }
 
-        return loadAndEnrichFilms(filmScores, count);
+        return loadAndSortFilms(filmScores);
     }
 
     private static class MatrixData {
@@ -313,7 +313,8 @@ public class FilmService {
     }
 
     private Map<Long, Double> calculateRecommendationScores(
-            Set<Long> userLikedFilmIds, MatrixData matrixData) {
+            Set<Long> userLikedFilmIds,
+            MatrixData matrixData) {
 
         Map<Long, Double> filmScores = new HashMap<>();
 
@@ -322,11 +323,7 @@ public class FilmService {
                 continue;
             }
 
-            double score = calculateScoreForFilm(
-                    candidateFilmId,
-                    userLikedFilmIds,
-                    matrixData
-            );
+            double score = calculateScoreForFilm(candidateFilmId, userLikedFilmIds, matrixData);
 
             if (score > 0) {
                 filmScores.put(candidateFilmId, score);
@@ -358,20 +355,23 @@ public class FilmService {
         return score;
     }
 
-    private List<Film> loadAndEnrichFilms(Map<Long, Double> filmScores, int count) {
+    private List<Film> loadAndSortFilms(Map<Long, Double> filmScores) {
         List<Long> filmIds = new ArrayList<>(filmScores.keySet());
 
         Map<Long, Film> filmsById = filmStorage.findByIds(filmIds).stream()
                 .collect(Collectors.toMap(Film::getId, Function.identity()));
 
-        return filmIds.stream()
+        List<Film> films = filmIds.stream()
                 .map(filmsById::get)
                 .filter(Objects::nonNull)
-                .sorted(Comparator.comparingDouble((Film f) -> filmScores.get(f.getId())).reversed()
-                                .thenComparing(Film::getName, Comparator.nullsLast(Comparator.naturalOrder()))
-                                .thenComparing(Film::getId))
-                .limit(count)
-                .peek(this::loadSingleFilmRelations)
+                .toList();
+
+        loadFilmRelations(films);
+
+        return films.stream()
+                .sorted(Comparator
+                        .<Film, Double>comparing(f -> filmScores.get(f.getId()), Comparator.reverseOrder())
+                        .thenComparing(Film::getName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 

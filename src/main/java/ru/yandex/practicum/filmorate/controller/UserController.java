@@ -78,13 +78,8 @@ public class UserController {
     }
 
     @GetMapping("/{id}/recommendations")
-    public Collection<Film> getRecommendations(
-            @PathVariable Long id,
-            @RequestParam(name = "count", defaultValue = "10")
-            @Positive(message = "Параметр count должен быть больше нуля")
-            int count) {
-
+    public Collection<Film> getRecommendations(@PathVariable Long id) {
         userService.findById(id);
-        return filmService.getRecommendations(id, count);
+        return filmService.getRecommendations(id);
     }
 }

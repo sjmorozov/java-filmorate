@@ -63,49 +63,6 @@ class UserControllerRecommendationsIntegrationTest {
     }
 
     @Test
-    void getRecommendations_withCountParameter_shouldLimitResults() throws Exception {
-        User u1 = createAndSaveUser("u1@test.com", "u1");
-        User u2 = createAndSaveUser("u2@test.com", "u2");
-        User u3 = createAndSaveUser("u3@test.com", "u3");
-
-        Film f1 = createAndSaveFilm("Film 1", 120);
-        Film f2 = createAndSaveFilm("Film 2", 100);
-        Film f3 = createAndSaveFilm("Film 3", 110);
-
-        addLike(f1, u1);
-        addLike(f1, u2);
-        addLike(f2, u2);
-        addLike(f3, u2);
-        addLike(f1, u3);
-
-        mockMvc.perform(get("/users/{id}/recommendations", u1.getId())
-                        .param("count", "1")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
-    }
-
-    @Test
-    void getRecommendations_withInvalidCount_shouldReturnBadRequest() throws Exception {
-        User u1 = createAndSaveUser("u1@test.com", "u1");
-
-        mockMvc.perform(get("/users/{id}/recommendations", u1.getId())
-                        .param("count", "0")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void getRecommendations_withNegativeCount_shouldReturnBadRequest() throws Exception {
-        User u1 = createAndSaveUser("u1@test.com", "u1");
-
-        mockMvc.perform(get("/users/{id}/recommendations", u1.getId())
-                        .param("count", "-5")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
     void getRecommendations_whenUserNotFound_shouldReturnNotFound() throws Exception {
         mockMvc.perform(get("/users/{id}/recommendations", 999L)
                         .contentType(MediaType.APPLICATION_JSON))

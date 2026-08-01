@@ -49,7 +49,7 @@ class FilmServiceRecommendationsIntegrationTest {
         addLike(film1, user3);
         addLike(film2, user3);
 
-        Collection<Film> recommendations = filmService.getRecommendations(user1.getId(), 10);
+        Collection<Film> recommendations = filmService.getRecommendations(user1.getId());
 
         assertThat(recommendations).isEmpty();
     }
@@ -74,7 +74,7 @@ class FilmServiceRecommendationsIntegrationTest {
         addLike(f2, u3);
         addLike(f4, u3);
 
-        Collection<Film> recommendations = filmService.getRecommendations(u1.getId(), 10);
+        Collection<Film> recommendations = filmService.getRecommendations(u1.getId());
 
         assertThat(recommendations).hasSize(2);
         List<Long> recommendedIds = recommendations.stream().map(Film::getId).toList();
@@ -94,36 +94,9 @@ class FilmServiceRecommendationsIntegrationTest {
         addLike(f1, u2);
         addLike(f2, u2);
 
-        Collection<Film> recommendations = filmService.getRecommendations(u1.getId(), 10);
+        Collection<Film> recommendations = filmService.getRecommendations(u1.getId());
 
         assertThat(recommendations).isEmpty();
-    }
-
-    @Test
-    void getRecommendations_shouldRespectCountParameter() {
-        User u1 = createAndSaveUser("u1@test.com", "u1");
-        User u2 = createAndSaveUser("u2@test.com", "u2");
-        User u3 = createAndSaveUser("u3@test.com", "u3");
-
-        Film f1 = createAndSaveFilm("Film 1", 120);
-        Film f2 = createAndSaveFilm("Film 2", 100);
-        Film f3 = createAndSaveFilm("Film 3", 110);
-        Film f4 = createAndSaveFilm("Film 4", 90);
-        Film f5 = createAndSaveFilm("Film 5", 95);
-
-        addLike(f1, u1);
-
-        addLike(f1, u2);
-        addLike(f2, u2);
-        addLike(f3, u2);
-
-        addLike(f1, u3);
-        addLike(f4, u3);
-        addLike(f5, u3);
-
-        Collection<Film> recommendations = filmService.getRecommendations(u1.getId(), 2);
-
-        assertThat(recommendations).hasSize(2);
     }
 
     private User createAndSaveUser(String email, String login) {
