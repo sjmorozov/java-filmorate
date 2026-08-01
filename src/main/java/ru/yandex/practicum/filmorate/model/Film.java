@@ -45,5 +45,8 @@ public class Film {
     @JsonSetter(nulls = Nulls.AS_EMPTY)
     private Set<Genre> genres = new HashSet<>();
 
+    @JsonSetter(nulls = Nulls.AS_EMPTY)
+    private Set<Director> directors;
+
     private MpaRating mpa;
 }

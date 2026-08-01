@@ -3,6 +3,8 @@ package ru.yandex.practicum.filmorate.storage.director;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -86,6 +90,25 @@ public class DirectorDbStorage implements DirectorStorage {
         } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Режиссёр с id = " + id + " не найден");
         }
+    }
+
+    @Override
+    public Set<Director> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Set.of();
+        }
+
+        String sql = """
+                SELECT id, name
+                FROM directors
+                WHERE id IN (:ids)
+                ORDER BY id
+                """;
+
+        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+
+        return new LinkedHashSet<>(namedJdbcTemplate.query(sql, parameters, this::mapRowToDirector));
     }
 
     @Override

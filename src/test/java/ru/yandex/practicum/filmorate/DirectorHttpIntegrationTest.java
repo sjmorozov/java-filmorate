@@ -9,8 +9,12 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import ru.yandex.practicum.filmorate.model.Director;
+import ru.yandex.practicum.filmorate.model.Film;
 
+import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -121,5 +125,101 @@ class DirectorHttpIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void shouldSaveReplaceAndLoadFilmDirectors() {
+        Director firstDirector = createDirector("Акира Куросава");
+        Director secondDirector = createDirector("Хаяо Миядзаки");
+        Film film = Film.builder()
+                .name("Фильм с режиссёрами")
+                .description("Проверяем связь фильма с несколькими режиссёрами")
+                .releaseDate(LocalDate.of(2001, 1, 1))
+                .duration(120)
+                .directors(Set.of(
+                        new Director(firstDirector.getId(), null),
+                        new Director(secondDirector.getId(), null)
+                ))
+                .build();
+
+        ResponseEntity<Film> createResponse = restTemplate.postForEntity("/films", film, Film.class);
+
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Film createdFilm = createResponse.getBody();
+        assertThat(createdFilm).isNotNull();
+        assertThat(createdFilm.getDirectors())
+                .as("Созданный фильм должен содержать обоих режиссёров с именами")
+                .containsExactlyInAnyOrder(firstDirector, secondDirector);
+
+        Film filmForUpdate = Film.builder()
+                .id(createdFilm.getId())
+                .directors(Set.of(new Director(secondDirector.getId(), null)))
+                .build();
+        ResponseEntity<Film> updateResponse = restTemplate.exchange(
+                "/films",
+                HttpMethod.PUT,
+                new HttpEntity<>(filmForUpdate),
+                Film.class
+        );
+
+        assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(updateResponse.getBody()).isNotNull();
+        assertThat(updateResponse.getBody().getDirectors())
+                .as("Обновление должно заменить прежний набор режиссёров")
+                .containsExactly(secondDirector);
+
+        ResponseEntity<Film> partialUpdateResponse = restTemplate.exchange(
+                "/films",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of(
+                        "id", createdFilm.getId(),
+                        "name", "Фильм с новым названием"
+                )),
+                Film.class
+        );
+
+        assertThat(partialUpdateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(partialUpdateResponse.getBody()).isNotNull();
+        assertThat(partialUpdateResponse.getBody().getDirectors())
+                .as("При отсутствии поля directors существующая связь должна сохраниться")
+                .containsExactly(secondDirector);
+
+        restTemplate.delete("/directors/{id}", secondDirector.getId());
+        Film filmWithoutDirector = restTemplate.getForObject(
+                "/films/{id}",
+                Film.class,
+                createdFilm.getId()
+        );
+
+        assertThat(filmWithoutDirector.getDirectors())
+                .as("Удаление режиссёра должно каскадно удалить только связь с фильмом")
+                .isEmpty();
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenFilmDirectorDoesNotExist() {
+        Film film = Film.builder()
+                .name("Фильм с неизвестным режиссёром")
+                .description("Этот фильм не должен сохраниться")
+                .releaseDate(LocalDate.of(2002, 2, 2))
+                .duration(90)
+                .directors(Set.of(new Director(999_999L, null)))
+                .build();
+
+        ResponseEntity<String> response = restTemplate.postForEntity("/films", film, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    private Director createDirector(String name) {
+        ResponseEntity<Director> response = restTemplate.postForEntity(
+                "/directors",
+                Director.builder().name(name).build(),
+                Director.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody();
     }
 }

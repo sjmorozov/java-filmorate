@@ -6,10 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.filmdirector.FilmDirectorStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreStorage;
 import ru.yandex.practicum.filmorate.storage.filmlike.FilmLikeStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
@@ -37,6 +40,8 @@ public class FilmService {
     private final MpaRatingStorage mpaRatingStorage;
     private final GenreStorage genreStorage;
     private final FilmGenreStorage filmGenreStorage;
+    private final DirectorStorage directorStorage;
+    private final FilmDirectorStorage filmDirectorStorage;
     private final FilmLikeStorage filmLikeStorage;
 
     @Transactional
@@ -44,10 +49,14 @@ public class FilmService {
         validateReleaseDate(film.getReleaseDate());
         resolveMpa(film);
         resolveGenres(film);
+        if (!resolveDirectors(film)) {
+            film.setDirectors(new LinkedHashSet<>());
+        }
 
         Film createdFilm = filmStorage.add(film);
 
         filmGenreStorage.replaceByFilmId(createdFilm.getId(), createdFilm.getGenres());
+        filmDirectorStorage.replaceByFilmId(createdFilm.getId(), createdFilm.getDirectors());
 
         log.info("Фильм добавлен: id={}, name={}", createdFilm.getId(), createdFilm.getName());
         return createdFilm;
@@ -95,11 +104,21 @@ public class FilmService {
             oldFilm.setGenres(film.getGenres());
         }
 
+        if (resolveDirectors(film)) {
+            oldFilm.setDirectors(film.getDirectors());
+        }
+
         Film updatedFilm = filmStorage.update(oldFilm);
 
         if (film.getGenres() != null) {
             filmGenreStorage.replaceByFilmId(updatedFilm.getId(), updatedFilm.getGenres());
         }
+
+        if (film.getDirectors() != null) {
+            filmDirectorStorage.replaceByFilmId(updatedFilm.getId(), updatedFilm.getDirectors());
+        }
+
+        loadFilmRelations(List.of(updatedFilm));
 
         log.info("Фильм обновлён: id = {}, name = {}", updatedFilm.getId(), updatedFilm.getName());
         return updatedFilm;
@@ -225,6 +244,25 @@ public class FilmService {
         return false;
     }
 
+    private boolean resolveDirectors(Film film) {
+        if (film.getDirectors() != null) {
+            LinkedHashSet<Long> directorIds = film.getDirectors().stream()
+                    .map(director -> director == null ? null : director.getId())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            if (directorIds.contains(null)) {
+                throw new NotFoundException("Режиссёр с id = null не найден");
+            }
+
+            Set<Director> directors = directorStorage.findByIds(directorIds);
+            validateAllDirectorsFound(directorIds, directors);
+            film.setDirectors(directors);
+            return true;
+        }
+
+        return false;
+    }
+
     private void loadFilmRelations(Collection<Film> films) {
         if (films.isEmpty()) {
             return;
@@ -232,11 +270,13 @@ public class FilmService {
 
         List<Long> filmIds = getFilmIds(films);
         Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(filmIds);
+        Map<Long, Set<Director>> directorsByFilmId = filmDirectorStorage.findByFilmIds(filmIds);
         Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(filmIds);
 
         films.forEach(film -> {
             Long filmId = film.getId();
             film.setGenres(genresByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
+            film.setDirectors(directorsByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
             film.setLikes(likesByFilmId.getOrDefault(filmId, new LinkedHashSet<>()));
         });
     }
@@ -257,6 +297,20 @@ public class FilmService {
                 .findFirst()
                 .ifPresent(id -> {
                     throw new NotFoundException("Жанр с id = " + id + " не найден");
+                });
+    }
+
+    private void validateAllDirectorsFound(Collection<Long> requestedDirectorIds,
+                                           Collection<Director> foundDirectors) {
+        Set<Long> foundDirectorIds = foundDirectors.stream()
+                .map(Director::getId)
+                .collect(Collectors.toSet());
+
+        requestedDirectorIds.stream()
+                .filter(id -> !foundDirectorIds.contains(id))
+                .findFirst()
+                .ifPresent(id -> {
+                    throw new NotFoundException("Режиссёр с id = " + id + " не найден");
                 });
     }
 }
