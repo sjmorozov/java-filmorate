@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 public class FilmService {
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final int MAX_DESCRIPTION_LENGTH = 200;
+    private static final String SORT_BY_YEAR = "year";
+    private static final String SORT_BY_LIKES = "likes";
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
@@ -184,6 +186,21 @@ public class FilmService {
         return popularFilms;
     }
 
+    public Collection<Film> findByDirector(Long directorId, String sortBy) {
+        validateDirectorFilmSort(sortBy);
+        directorStorage.findById(directorId);
+
+        List<Long> filmIds = filmDirectorStorage.findFilmIdsByDirectorId(directorId, sortBy);
+        Map<Long, Film> filmsById = filmStorage.findByIds(filmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+        List<Film> films = filmIds.stream()
+                .map(filmsById::get)
+                .toList();
+
+        loadFilmRelations(films);
+        return films;
+    }
+
     /**
      * Проверяет существование жанра, если он указан.
      *
@@ -242,6 +259,12 @@ public class FilmService {
         }
 
         return false;
+    }
+
+    private void validateDirectorFilmSort(String sortBy) {
+        if (!SORT_BY_YEAR.equals(sortBy) && !SORT_BY_LIKES.equals(sortBy)) {
+            throw new ValidationException("Параметр sortBy должен иметь значение year или likes");
+        }
     }
 
     private boolean resolveDirectors(Film film) {

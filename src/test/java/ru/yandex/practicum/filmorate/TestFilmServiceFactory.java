@@ -230,6 +230,15 @@ final class TestFilmServiceFactory {
 
             return result;
         }
+
+        @Override
+        public List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy) {
+            return directorsByFilmId.entrySet().stream()
+                    .filter(entry -> entry.getValue().stream()
+                            .anyMatch(director -> director.getId().equals(directorId)))
+                    .map(Map.Entry::getKey)
+                    .toList();
+        }
     }
 
     private static final class TestFilmLikeStorage implements FilmLikeStorage {

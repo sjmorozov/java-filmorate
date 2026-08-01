@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -71,6 +72,27 @@ public class FilmDirectorDbStorage implements FilmDirectorStorage {
         });
 
         return directorsByFilmId;
+    }
+
+    @Override
+    public List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy) {
+        String orderBy = switch (sortBy) {
+            case "year" -> "f.release_date, f.id";
+            case "likes" -> "COUNT(fl.user_id) DESC, f.id";
+            default -> throw new IllegalArgumentException("Неизвестный тип сортировки: " + sortBy);
+        };
+
+        String sql = """
+                SELECT f.id
+                FROM films AS f
+                JOIN film_directors AS fd ON f.id = fd.film_id
+                LEFT JOIN film_likes AS fl ON f.id = fl.film_id
+                WHERE fd.director_id = ?
+                GROUP BY f.id, f.release_date
+                ORDER BY %s
+                """.formatted(orderBy);
+
+        return jdbcTemplate.queryForList(sql, Long.class, directorId);
     }
 
     private void deleteByFilmId(Long filmId) {

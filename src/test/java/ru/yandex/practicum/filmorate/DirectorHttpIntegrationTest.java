@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -211,6 +212,77 @@ class DirectorHttpIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void shouldReturnDirectorFilmsSortedByYearAndLikes() {
+        Director director = createDirector("Питер Джексон");
+        Film oldestFilm = createFilm("Небесные создания", LocalDate.of(1994, 10, 14), director);
+        Film mostPopularFilm = createFilm("Властелин колец", LocalDate.of(2001, 12, 10), director);
+        Film newestFilm = createFilm("Хоббит", LocalDate.of(2012, 11, 28), director);
+
+        User firstUser = createUser("director-sort-1@example.com", "director-sort-1");
+        User secondUser = createUser("director-sort-2@example.com", "director-sort-2");
+        User thirdUser = createUser("director-sort-3@example.com", "director-sort-3");
+
+        addLike(oldestFilm, firstUser);
+        addLike(mostPopularFilm, firstUser);
+        addLike(mostPopularFilm, secondUser);
+        addLike(mostPopularFilm, thirdUser);
+        addLike(newestFilm, firstUser);
+        addLike(newestFilm, secondUser);
+
+        Film[] filmsByYear = restTemplate.getForObject(
+                "/films/director/{id}?sortBy=year",
+                Film[].class,
+                director.getId()
+        );
+        Film[] filmsByLikes = restTemplate.getForObject(
+                "/films/director/{id}?sortBy=likes",
+                Film[].class,
+                director.getId()
+        );
+
+        assertThat(filmsByYear)
+                .as("Фильмы режиссёра должны идти от ранних к поздним")
+                .extracting(Film::getId)
+                .containsExactly(oldestFilm.getId(), mostPopularFilm.getId(), newestFilm.getId());
+        assertThat(filmsByLikes)
+                .as("Сначала должны возвращаться фильмы с наибольшим количеством лайков")
+                .extracting(Film::getId)
+                .containsExactly(mostPopularFilm.getId(), newestFilm.getId(), oldestFilm.getId());
+    }
+
+    @Test
+    void shouldValidateDirectorFilmRequest() {
+        Director director = createDirector("Режиссёр без фильмов");
+
+        ResponseEntity<String> invalidSortResponse = restTemplate.getForEntity(
+                "/films/director/{id}?sortBy=name",
+                String.class,
+                director.getId()
+        );
+        ResponseEntity<String> missingSortResponse = restTemplate.getForEntity(
+                "/films/director/{id}",
+                String.class,
+                director.getId()
+        );
+        ResponseEntity<Film[]> emptyResponse = restTemplate.getForEntity(
+                "/films/director/{id}?sortBy=year",
+                Film[].class,
+                director.getId()
+        );
+        ResponseEntity<String> unknownDirectorResponse = restTemplate.getForEntity(
+                "/films/director/{id}?sortBy=year",
+                String.class,
+                999_999L
+        );
+
+        assertThat(invalidSortResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(missingSortResponse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(emptyResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(emptyResponse.getBody()).isEmpty();
+        assertThat(unknownDirectorResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
     private Director createDirector(String name) {
         ResponseEntity<Director> response = restTemplate.postForEntity(
                 "/directors",
@@ -221,5 +293,40 @@ class DirectorHttpIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         return response.getBody();
+    }
+
+    private Film createFilm(String name, LocalDate releaseDate, Director director) {
+        Film film = Film.builder()
+                .name(name)
+                .description("Фильм для проверки сортировки")
+                .releaseDate(releaseDate)
+                .duration(120)
+                .directors(Set.of(new Director(director.getId(), null)))
+                .build();
+
+        ResponseEntity<Film> response = restTemplate.postForEntity("/films", film, Film.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody();
+    }
+
+    private User createUser(String email, String login) {
+        User user = User.builder()
+                .email(email)
+                .login(login)
+                .name(login)
+                .birthday(LocalDate.of(1990, 1, 1))
+                .build();
+
+        ResponseEntity<User> response = restTemplate.postForEntity("/users", user, User.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        return response.getBody();
+    }
+
+    private void addLike(Film film, User user) {
+        restTemplate.put("/films/{filmId}/like/{userId}", null, film.getId(), user.getId());
     }
 }
