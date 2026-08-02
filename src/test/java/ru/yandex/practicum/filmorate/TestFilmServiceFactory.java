@@ -306,5 +306,28 @@ final class TestFilmServiceFactory {
                     .map(Film::getId)
                     .toList();
         }
+
+        @Override
+        public Set<Long> findFilmIdsByUserId(Long userId) {
+            Set<Long> filmIds = new LinkedHashSet<>();
+            for (Map.Entry<Long, Set<Long>> entry : likesByFilmId.entrySet()) {
+                if (entry.getValue().contains(userId)) {
+                    filmIds.add(entry.getKey());
+                }
+            }
+            return filmIds;
+        }
+
+        @Override
+        public Map<Long, Set<Long>> findAllFilmIdsGroupedByUser() {
+            Map<Long, Set<Long>> filmsByUser = new LinkedHashMap<>();
+            for (Map.Entry<Long, Set<Long>> entry : likesByFilmId.entrySet()) {
+                Long filmId = entry.getKey();
+                for (Long userId : entry.getValue()) {
+                    filmsByUser.computeIfAbsent(userId, id -> new LinkedHashSet<>()).add(filmId);
+                }
+            }
+            return filmsByUser;
+        }
     }
 }
