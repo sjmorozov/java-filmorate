@@ -9,13 +9,7 @@ import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -124,6 +118,25 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
                 .addValue("count", count);
 
         return new NamedParameterJdbcTemplate(jdbcTemplate).queryForList(sql, parameters, Long.class);
+    }
+
+    @Override
+    public Set<Long> findFilmIdsByUserId(Long userId) {
+        String sql = "SELECT film_id FROM film_likes WHERE user_id = ?";
+        List<Long> filmIds = jdbcTemplate.queryForList(sql, Long.class, userId);
+        return new HashSet<>(filmIds);
+    }
+
+    @Override
+    public Map<Long, Set<Long>> findAllFilmIdsGroupedByUser() {
+        String sql = "SELECT user_id, film_id FROM film_likes";
+        Map<Long, Set<Long>> filmsByUser = new HashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            Long userId = rs.getLong("user_id");
+            Long filmId = rs.getLong("film_id");
+            filmsByUser.computeIfAbsent(userId, k -> new HashSet<>()).add(filmId);
+        });
+        return filmsByUser;
     }
 
     @Override

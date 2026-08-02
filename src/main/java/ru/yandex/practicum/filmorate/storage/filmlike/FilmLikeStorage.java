@@ -22,5 +22,9 @@ public interface FilmLikeStorage {
      */
     List<Long> findPopularFilmIds(int count, Integer genreId, Integer year);
 
+    Set<Long> findFilmIdsByUserId(Long userId);
+
+    Map<Long, Set<Long>> findAllFilmIdsGroupedByUser();
+
     List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId);
 }

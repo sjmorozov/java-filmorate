@@ -1,11 +1,14 @@
 package ru.yandex.practicum.filmorate;
 
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.filmdirector.FilmDirectorStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreStorage;
 import ru.yandex.practicum.filmorate.storage.filmlike.FilmLikeStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreStorage;
@@ -28,6 +31,7 @@ final class TestFilmServiceFactory {
 
     static FilmService create(FilmStorage filmStorage, UserStorage userStorage) {
         TestFilmGenreStorage filmGenreStorage = new TestFilmGenreStorage();
+        TestFilmDirectorStorage filmDirectorStorage = new TestFilmDirectorStorage();
         TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage, filmGenreStorage);
 
         return new FilmService(
@@ -36,6 +40,8 @@ final class TestFilmServiceFactory {
                 new TestMpaRatingStorage(),
                 new TestGenreStorage(),
                 filmGenreStorage,
+                new TestDirectorStorage(),
+                filmDirectorStorage,
                 filmLikeStorage
         );
     }
@@ -104,6 +110,62 @@ final class TestFilmServiceFactory {
         }
     }
 
+    private static final class TestDirectorStorage implements DirectorStorage {
+        private final Map<Long, Director> directors = new LinkedHashMap<>(Map.of(
+                1L, new Director(1L, "Андрей Тарковский"),
+                2L, new Director(2L, "Кристофер Нолан")
+        ));
+        private long nextId = 3;
+
+        @Override
+        public Director add(Director director) {
+            director.setId(nextId++);
+            directors.put(director.getId(), director);
+            return director;
+        }
+
+        @Override
+        public Director update(Director director) {
+            findById(director.getId());
+            directors.put(director.getId(), director);
+            return director;
+        }
+
+        @Override
+        public void delete(Long id) {
+            findById(id);
+            directors.remove(id);
+        }
+
+        @Override
+        public Director findById(Long id) {
+            Director director = directors.get(id);
+
+            if (director == null) {
+                throw new NotFoundException("Режиссёр с id = " + id + " не найден");
+            }
+
+            return director;
+        }
+
+        @Override
+        public Set<Director> findByIds(Collection<Long> ids) {
+            if (ids == null || ids.isEmpty()) {
+                return Set.of();
+            }
+
+            return ids.stream()
+                    .map(directors::get)
+                    .filter(director -> director != null)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+
+        @Override
+        public Collection<Director> findAll() {
+            return directors.values();
+        }
+    }
+
     private static final class TestFilmGenreStorage implements FilmGenreStorage {
         private final Map<Long, Set<Genre>> genresByFilmId = new LinkedHashMap<>();
 
@@ -134,6 +196,48 @@ final class TestFilmServiceFactory {
             }
 
             return result;
+        }
+    }
+
+    private static final class TestFilmDirectorStorage implements FilmDirectorStorage {
+        private final Map<Long, Set<Director>> directorsByFilmId = new LinkedHashMap<>();
+
+        @Override
+        public void replaceByFilmId(Long filmId, Set<Director> directors) {
+            directorsByFilmId.put(filmId, new LinkedHashSet<>(directors));
+        }
+
+        @Override
+        public Set<Director> findByFilmId(Long filmId) {
+            return new LinkedHashSet<>(directorsByFilmId.getOrDefault(filmId, Set.of()));
+        }
+
+        @Override
+        public Map<Long, Set<Director>> findByFilmIds(Collection<Long> filmIds) {
+            if (filmIds == null || filmIds.isEmpty()) {
+                return Map.of();
+            }
+
+            Map<Long, Set<Director>> result = new LinkedHashMap<>();
+
+            for (Long filmId : filmIds) {
+                Set<Director> directors = directorsByFilmId.get(filmId);
+
+                if (directors != null) {
+                    result.put(filmId, new LinkedHashSet<>(directors));
+                }
+            }
+
+            return result;
+        }
+
+        @Override
+        public List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy) {
+            return directorsByFilmId.entrySet().stream()
+                    .filter(entry -> entry.getValue().stream()
+                            .anyMatch(director -> director.getId().equals(directorId)))
+                    .map(Map.Entry::getKey)
+                    .toList();
         }
     }
 
@@ -201,6 +305,29 @@ final class TestFilmServiceFactory {
                     .limit(count)
                     .map(Film::getId)
                     .toList();
+        }
+
+        @Override
+        public Set<Long> findFilmIdsByUserId(Long userId) {
+            Set<Long> filmIds = new LinkedHashSet<>();
+            for (Map.Entry<Long, Set<Long>> entry : likesByFilmId.entrySet()) {
+                if (entry.getValue().contains(userId)) {
+                    filmIds.add(entry.getKey());
+                }
+            }
+            return filmIds;
+        }
+
+        @Override
+        public Map<Long, Set<Long>> findAllFilmIdsGroupedByUser() {
+            Map<Long, Set<Long>> filmsByUser = new LinkedHashMap<>();
+            for (Map.Entry<Long, Set<Long>> entry : likesByFilmId.entrySet()) {
+                Long filmId = entry.getKey();
+                for (Long userId : entry.getValue()) {
+                    filmsByUser.computeIfAbsent(userId, id -> new LinkedHashSet<>()).add(filmId);
+                }
+            }
+            return filmsByUser;
         }
 
         @Override
