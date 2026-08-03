@@ -25,4 +25,6 @@ public interface FilmLikeStorage {
     Set<Long> findFilmIdsByUserId(Long userId);
 
     Map<Long, Set<Long>> findAllFilmIdsGroupedByUser();
+
+    List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId);
 }

@@ -452,11 +452,26 @@ public class FilmService {
                 .toList();
     }
 
-    private void loadSingleFilmRelations(Film film) {
-        Map<Long, Set<Genre>> genresByFilmId = filmGenreStorage.findByFilmIds(List.of(film.getId()));
-        Map<Long, Set<Long>> likesByFilmId = filmLikeStorage.findUserIdsByFilmIds(List.of(film.getId()));
+    public Collection<Film> findCommonFilms(Long userId, Long friendId) {
+        userStorage.findById(userId);
+        userStorage.findById(friendId);
 
-        film.setGenres(genresByFilmId.getOrDefault(film.getId(), new LinkedHashSet<>()));
-        film.setLikes(likesByFilmId.getOrDefault(film.getId(), new LinkedHashSet<>()));
+        List<Long> commonFilmIds = filmLikeStorage.findCommonFilmIdsSortedByPopularity(userId, friendId);
+
+        if (commonFilmIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Film> filmsById = filmStorage.findByIds(commonFilmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+
+        List<Film> commonFilms = commonFilmIds.stream()
+                .map(filmsById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        loadFilmRelations(commonFilms);
+
+        return commonFilms;
     }
 }

@@ -329,5 +329,22 @@ final class TestFilmServiceFactory {
             }
             return filmsByUser;
         }
+
+        @Override
+        public List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId) {
+            Set<Long> commonFilmIds = likesByFilmId.entrySet().stream()
+                    .filter(entry -> entry.getValue().contains(userId) && entry.getValue().contains(friendId))
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            Comparator<Long> popularityComparator = Comparator
+                    .<Long>comparingLong(filmId -> likesByFilmId.getOrDefault(filmId, Set.of()).size())
+                    .reversed()
+                    .thenComparing(Long::compareTo);
+
+            return commonFilmIds.stream()
+                    .sorted(popularityComparator)
+                    .toList();
+        }
     }
 }
