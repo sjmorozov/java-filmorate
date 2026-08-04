@@ -6,6 +6,7 @@ import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.InMemoryFriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
@@ -33,11 +34,13 @@ public class UserControllerTest {
         UserStorage userStorage = new InMemoryUserStorage();
         FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
         FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
-        UserService userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
+        EventStorage eventStorage = mock(EventStorage.class);
+
+        UserService userService = new UserService(userStorage, friendRequestStorage, friendshipStorage, eventStorage);
 
         FilmService filmService = mock(FilmService.class);
 
-        userController = new UserController(userService, filmService);
+        userController = new UserController(userService, filmService, eventStorage);
     }
 
     private User createValidUser() {
