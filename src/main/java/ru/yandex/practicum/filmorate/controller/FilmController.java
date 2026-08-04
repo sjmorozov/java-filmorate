@@ -99,4 +99,15 @@ public class FilmController {
             @RequestParam Long friendId) {
         return filmService.findCommonFilms(userId, friendId);
     }
+
+    /**
+     * Ищет фильмы по подстроке в названии и/или в имени режиссёра, отсортированные по популярности.
+     *
+     * @param query текст для поиска
+     * @param by    "title", "director" или оба через запятую
+     */
+    @GetMapping("/search")
+    public Collection<Film> search(@RequestParam String query, @RequestParam String by) {
+        return filmService.search(query, by);
+    }
 }

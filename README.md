@@ -171,6 +171,7 @@ GET    /films/{id}
 PUT    /films/{id}/like/{userId}
 DELETE /films/{id}/like/{userId}
 GET    /films/popular?count=10&genreId={genreId}&year={year}
+GET    /films/search?query={query}&by={director,title}
 ```
 
 ### Жанры

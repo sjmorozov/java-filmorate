@@ -27,4 +27,13 @@ public interface FilmLikeStorage {
     Map<Long, Set<Long>> findAllFilmIdsGroupedByUser();
 
     List<Long> findCommonFilmIdsSortedByPopularity(Long userId, Long friendId);
+
+    /**
+     * Ищет фильмы по подстроке в названии и/или в имени режиссёра, отсортированные по популярности.
+     *
+     * @param query         текст для поиска (регистронезависимо, по подстроке)
+     * @param searchByTitle искать по названию фильма
+     * @param searchByDirector искать по имени режиссёра
+     */
+    List<Long> findSearchFilmIds(String query, boolean searchByTitle, boolean searchByDirector);
 }
