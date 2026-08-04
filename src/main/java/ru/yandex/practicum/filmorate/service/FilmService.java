@@ -32,6 +32,8 @@ public class FilmService {
     private static final int MAX_DESCRIPTION_LENGTH = 200;
     private static final String SORT_BY_YEAR = "year";
     private static final String SORT_BY_LIKES = "likes";
+    private static final String SEARCH_BY_TITLE = "title";
+    private static final String SEARCH_BY_DIRECTOR = "director";
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
@@ -473,5 +475,55 @@ public class FilmService {
         loadFilmRelations(commonFilms);
 
         return commonFilms;
+    }
+
+    /**
+     * Ищет фильмы по подстроке в названии и/или в имени режиссёра, отсортированные по популярности.
+     *
+     * @param query текст для поиска
+     * @param by    "title", "director" или оба через запятую — по каким полям искать
+     * @throws ValidationException если query пустой или by содержит недопустимые значения
+     */
+    public Collection<Film> search(String query, String by) {
+        if (query == null || query.isBlank()) {
+            throw new ValidationException("Параметр query должен быть указан");
+        }
+
+        Set<String> searchFields = parseSearchFields(by);
+        boolean searchByTitle = searchFields.contains(SEARCH_BY_TITLE);
+        boolean searchByDirector = searchFields.contains(SEARCH_BY_DIRECTOR);
+
+        List<Long> filmIds = filmLikeStorage.findSearchFilmIds(query, searchByTitle, searchByDirector);
+        Map<Long, Film> filmsById = filmStorage.findByIds(filmIds).stream()
+                .collect(Collectors.toMap(Film::getId, Function.identity()));
+        List<Film> films = filmIds.stream()
+                .map(filmsById::get)
+                .toList();
+
+        loadFilmRelations(films);
+
+        return films;
+    }
+
+    private Set<String> parseSearchFields(String by) {
+        if (by == null || by.isBlank()) {
+            throw new ValidationException("Параметр by должен быть указан");
+        }
+
+        Set<String> fields = Arrays.stream(by.split(","))
+                .map(String::trim)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<String> unknownFields = fields.stream()
+                .filter(field -> !SEARCH_BY_TITLE.equals(field) && !SEARCH_BY_DIRECTOR.equals(field))
+                .collect(Collectors.toSet());
+
+        if (!unknownFields.isEmpty()) {
+            throw new ValidationException(
+                    "Параметр by может содержать только значения " + SEARCH_BY_TITLE + ", " + SEARCH_BY_DIRECTOR
+                            + ", получено: " + unknownFields);
+        }
+
+        return fields;
     }
 }

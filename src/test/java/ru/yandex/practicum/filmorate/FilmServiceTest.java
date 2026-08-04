@@ -634,4 +634,85 @@ public class FilmServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }
+
+    /**
+     * Поиск по названию должен находить все фильмы с подстрокой в имени, сортируя по популярности.
+     */
+    @Test
+    void shouldSearchFilmsByTitle() {
+        Film matrix = saveFilm(createValidFilm());
+        Film matrixRevolutions = saveFilm(createSecondValidFilm());
+        saveFilm(createThirdValidFilm());
+
+        User user = saveUser(createFirstUser());
+        filmService.addLike(matrixRevolutions.getId(), user.getId());
+
+        List<Film> result = filmService.search("матриц", "title").stream().toList();
+
+        assertThat(result)
+                .as("Первым должен быть более популярный фильм с подстрокой 'матриц' в названии")
+                .extracting(Film::getId)
+                .containsExactly(matrixRevolutions.getId(), matrix.getId());
+    }
+
+    /**
+     * Поиск по режиссёру должен находить фильмы через имя режиссёра, а не через название фильма.
+     */
+    @Test
+    void shouldSearchFilmsByDirector() {
+        Film interstellar = createThirdValidFilm();
+        interstellar.setDirectors(Set.of(new Director(2L, "Кристофер Нолан")));
+        Film savedInterstellar = saveFilm(interstellar);
+
+        saveFilm(createValidFilm());
+
+        List<Film> result = filmService.search("нолан", "director").stream().toList();
+
+        assertThat(result)
+                .as("Должен найтись только фильм режиссёра, чьё имя содержит запрос")
+                .extracting(Film::getId)
+                .containsExactly(savedInterstellar.getId());
+    }
+
+    /**
+     * При by=director,title фильм должен попадать в результат, если совпадение есть хотя бы по одному полю.
+     */
+    @Test
+    void shouldSearchFilmsByTitleAndDirectorCombined() {
+        Film titleMatch = create("План побега", VALID_DESCRIPTION, VALID_RELEASE_DATE, VALID_DURATION);
+        Film savedTitleMatch = saveFilm(titleMatch);
+
+        Film directorMatch = createFourthValidFilm();
+        directorMatch.setDirectors(Set.of(new Director(2L, "Кристофер Нолан")));
+        Film savedDirectorMatch = saveFilm(directorMatch);
+
+        saveFilm(createSecondValidFilm());
+
+        List<Film> result = filmService.search("лан", "director,title").stream().toList();
+
+        assertThat(result)
+                .as("Должны найтись фильм с совпадением по названию и фильм с совпадением по режиссёру")
+                .extracting(Film::getId)
+                .containsExactlyInAnyOrder(savedTitleMatch.getId(), savedDirectorMatch.getId());
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchQueryIsBlank() {
+        assertThatThrownBy(() -> filmService.search(" ", "title"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр query должен быть указан");
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchByIsBlank() {
+        assertThatThrownBy(() -> filmService.search("матрица", " "))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр by должен быть указан");
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchByHasUnknownValue() {
+        assertThatThrownBy(() -> filmService.search("матрица", "actor"))
+                .isInstanceOf(ValidationException.class);
+    }
 }
