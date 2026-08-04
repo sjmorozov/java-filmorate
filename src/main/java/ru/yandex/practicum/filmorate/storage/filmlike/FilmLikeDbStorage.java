@@ -157,4 +157,37 @@ public class FilmLikeDbStorage implements FilmLikeStorage {
 
         return jdbcTemplate.queryForList(sql, Long.class, userId, friendId);
     }
+
+    @Override
+    public List<Long> findSearchFilmIds(String query, boolean searchByTitle, boolean searchByDirector) {
+        String sql = """
+                SELECT f.id
+                FROM films AS f
+                LEFT JOIN film_likes AS l ON f.id = l.film_id
+                WHERE (:searchByTitle = TRUE AND LOWER(f.name) LIKE LOWER(:pattern) ESCAPE '\\')
+                   OR (:searchByDirector = TRUE AND EXISTS (
+                        SELECT 1 FROM film_directors AS fd
+                        JOIN directors AS d ON fd.director_id = d.id
+                        WHERE fd.film_id = f.id AND LOWER(d.name) LIKE LOWER(:pattern) ESCAPE '\\'
+                      ))
+                GROUP BY f.id
+                ORDER BY COUNT(l.user_id) DESC, f.id
+                """;
+
+        String pattern = "%" + escapeLikePattern(query) + "%";
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("pattern", pattern)
+                .addValue("searchByTitle", searchByTitle)
+                .addValue("searchByDirector", searchByDirector);
+
+        return new NamedParameterJdbcTemplate(jdbcTemplate).queryForList(sql, parameters, Long.class);
+    }
+
+    private String escapeLikePattern(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
 }

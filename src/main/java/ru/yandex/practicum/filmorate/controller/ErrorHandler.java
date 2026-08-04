@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -71,5 +72,17 @@ public class ErrorHandler {
                 .collect(Collectors.joining("; "));
 
         return new ErrorResponse("Ошибка валидации", description);
+    }
+
+    /**
+     * Обрабатывает отсутствие обязательного {@code @RequestParam}. Spring выбрасывает эту ошибку
+     * до вызова метода контроллера, но без отдельного обработчика она попадает в общий
+     * {@link #handleException} и возвращается как 500 вместо 400.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingServletRequestParameter(final MissingServletRequestParameterException e) {
+        return new ErrorResponse("Ошибка валидации",
+                "Обязательный параметр '" + e.getParameterName() + "' не указан");
     }
 }

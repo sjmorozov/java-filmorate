@@ -35,7 +35,7 @@ final class TestFilmServiceFactory {
     static FilmService create(FilmStorage filmStorage, UserStorage userStorage) {
         TestFilmGenreStorage filmGenreStorage = new TestFilmGenreStorage();
         TestFilmDirectorStorage filmDirectorStorage = new TestFilmDirectorStorage();
-        TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage, filmGenreStorage);
+        TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage, filmGenreStorage, filmDirectorStorage);
         EventStorage eventStorage = mock(EventStorage.class);
 
         return new FilmService(
@@ -250,10 +250,13 @@ final class TestFilmServiceFactory {
         private final Map<Long, Set<Long>> likesByFilmId = new LinkedHashMap<>();
         private final FilmStorage filmStorage;
         private final TestFilmGenreStorage filmGenreStorage;
+        private final TestFilmDirectorStorage filmDirectorStorage;
 
-        private TestFilmLikeStorage(FilmStorage filmStorage, TestFilmGenreStorage filmGenreStorage) {
+        private TestFilmLikeStorage(FilmStorage filmStorage, TestFilmGenreStorage filmGenreStorage,
+                                     TestFilmDirectorStorage filmDirectorStorage) {
             this.filmStorage = filmStorage;
             this.filmGenreStorage = filmGenreStorage;
+            this.filmDirectorStorage = filmDirectorStorage;
         }
 
         @Override
@@ -349,6 +352,24 @@ final class TestFilmServiceFactory {
 
             return commonFilmIds.stream()
                     .sorted(popularityComparator)
+                    .toList();
+        }
+
+        @Override
+        public List<Long> findSearchFilmIds(String query, boolean searchByTitle, boolean searchByDirector) {
+            String lowerQuery = query.toLowerCase();
+
+            Comparator<Film> likesComparator = Comparator
+                    .comparingInt((Film film) -> likesByFilmId.getOrDefault(film.getId(), Set.of()).size())
+                    .reversed()
+                    .thenComparing(Film::getId);
+
+            return filmStorage.findAll().stream()
+                    .filter(film -> (searchByTitle && film.getName().toLowerCase().contains(lowerQuery))
+                            || (searchByDirector && filmDirectorStorage.findByFilmId(film.getId()).stream()
+                                    .anyMatch(director -> director.getName().toLowerCase().contains(lowerQuery))))
+                    .sorted(likesComparator)
+                    .map(Film::getId)
                     .toList();
         }
     }
