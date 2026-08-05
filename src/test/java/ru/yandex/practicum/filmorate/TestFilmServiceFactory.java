@@ -7,6 +7,7 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.filmdirector.FilmDirectorStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreStorage;
@@ -24,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.mock;
+
 final class TestFilmServiceFactory {
 
     private TestFilmServiceFactory() {
@@ -33,6 +36,7 @@ final class TestFilmServiceFactory {
         TestFilmGenreStorage filmGenreStorage = new TestFilmGenreStorage();
         TestFilmDirectorStorage filmDirectorStorage = new TestFilmDirectorStorage();
         TestFilmLikeStorage filmLikeStorage = new TestFilmLikeStorage(filmStorage, filmGenreStorage, filmDirectorStorage);
+        EventStorage eventStorage = mock(EventStorage.class);
 
         return new FilmService(
                 filmStorage,
@@ -42,7 +46,8 @@ final class TestFilmServiceFactory {
                 filmGenreStorage,
                 new TestDirectorStorage(),
                 filmDirectorStorage,
-                filmLikeStorage
+                filmLikeStorage,
+                eventStorage
         );
     }
 

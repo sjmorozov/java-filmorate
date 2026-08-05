@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.ReviewService;
+import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.reviewreaction.ReviewReactionDbStorage;
@@ -30,7 +31,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         ReviewDbStorage.class,
         ReviewReactionDbStorage.class,
         FilmDbStorage.class,
-        UserDbStorage.class
+        UserDbStorage.class,
+        EventDbStorage.class
 })
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class ReviewControllerTest {

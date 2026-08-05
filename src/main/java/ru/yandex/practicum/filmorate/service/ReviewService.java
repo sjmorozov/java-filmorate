@@ -5,7 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Event;
+import ru.yandex.practicum.filmorate.model.EventType;
+import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewStorage;
 import ru.yandex.practicum.filmorate.storage.reviewreaction.ReviewReactionStorage;
@@ -23,6 +27,7 @@ public class ReviewService {
     private final ReviewReactionStorage reviewReactionStorage;
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
+    private final EventStorage eventStorage;
 
     @Transactional
     public Review create(Review review) {
@@ -30,6 +35,14 @@ public class ReviewService {
         userStorage.findById(review.getUserId());
 
         Review createdReview = reviewStorage.add(review);
+
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(review.getUserId())
+                .eventType(EventType.REVIEW)
+                .operation(Operation.ADD)
+                .entityId(createdReview.getReviewId())
+                .build());
 
         log.info("Ревью добавлено: reviewId={}, userId={}", createdReview.getReviewId(), createdReview.getUserId());
         return createdReview;
@@ -56,11 +69,30 @@ public class ReviewService {
         }
 
         Review updatedReview = reviewStorage.update(oldReview);
+
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(updatedReview.getUserId())
+                .eventType(EventType.REVIEW)
+                .operation(Operation.UPDATE)
+                .entityId(updatedReview.getReviewId())
+                .build());
+
         log.info("Ревью обновлено: reviewId={}, userId={}", updatedReview.getReviewId(), updatedReview.getUserId());
         return updatedReview;
     }
 
     public void delete(Long reviewId) {
+        Review review = reviewStorage.findById(reviewId);
+
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(review.getUserId())
+                .eventType(EventType.REVIEW)
+                .operation(Operation.REMOVE)
+                .entityId(reviewId)
+                .build());
+
         reviewStorage.delete(reviewId);
         log.info("Ревью с id = {} удалено", reviewId);
     }

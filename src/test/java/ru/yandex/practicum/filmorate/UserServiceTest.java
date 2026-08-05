@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
 import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.InMemoryFriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
@@ -20,6 +21,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 public class UserServiceTest {
     private UserService userService;
@@ -49,7 +51,9 @@ public class UserServiceTest {
         UserStorage userStorage = new InMemoryUserStorage();
         FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
         FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
-        userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
+        EventStorage eventStorage = mock(EventStorage.class);
+
+        userService = new UserService(userStorage, friendRequestStorage, friendshipStorage, eventStorage);
     }
 
     private User create(String email, String login, String name, LocalDate birthday) {

@@ -6,11 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.model.Director;
-import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.model.*;
 import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.filmdirector.FilmDirectorStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreStorage;
@@ -43,6 +41,7 @@ public class FilmService {
     private final DirectorStorage directorStorage;
     private final FilmDirectorStorage filmDirectorStorage;
     private final FilmLikeStorage filmLikeStorage;
+    private final EventStorage eventStorage;
 
     @Transactional
     public Film create(Film film) {
@@ -147,6 +146,14 @@ public class FilmService {
 
         filmLikeStorage.add(film.getId(), user.getId());
 
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(userId)
+                .eventType(EventType.LIKE)
+                .operation(Operation.ADD)
+                .entityId(filmId)
+                .build());
+
         log.info("Пользователь {} поставил лайк фильму {}", user.getName(), film.getName());
     }
 
@@ -155,6 +162,14 @@ public class FilmService {
         User user = userStorage.findById(userId);
 
         filmLikeStorage.delete(film.getId(), user.getId());
+
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(userId)
+                .eventType(EventType.LIKE)
+                .operation(Operation.REMOVE)
+                .entityId(filmId)
+                .build());
 
         log.info("Пользователь {} убрал лайк с фильма {}", user.getName(), film.getName());
     }

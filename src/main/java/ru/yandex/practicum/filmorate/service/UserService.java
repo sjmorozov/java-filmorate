@@ -4,11 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.model.FriendRequest;
-import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
-import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
-import ru.yandex.practicum.filmorate.model.Friendship;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.model.*;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
@@ -25,6 +22,7 @@ public class UserService {
     private final UserStorage userStorage;
     private final FriendRequestStorage friendRequestStorage;
     private final FriendshipStorage friendshipStorage;
+    private final EventStorage eventStorage;
 
     public User create(User user) {
         normalizeUser(user);
@@ -78,6 +76,14 @@ public class UserService {
                     .secondUserId(friendId)
                     .build());
 
+            eventStorage.save(Event.builder()
+                    .timestamp(System.currentTimeMillis())
+                    .userId(userId)
+                    .eventType(EventType.FRIEND)
+                    .operation(Operation.UPDATE)
+                    .entityId(friendId)
+                    .build());
+
             log.info("Пользователь {} подтвердил дружбу с пользователем {}", user.getLogin(), friend.getLogin());
             return;
         }
@@ -85,6 +91,14 @@ public class UserService {
         friendRequestStorage.save(FriendRequest.builder()
                 .requesterId(userId)
                 .recipientId(friendId)
+                .build());
+
+        eventStorage.save(Event.builder()
+                .timestamp(System.currentTimeMillis())
+                .userId(userId)
+                .eventType(EventType.FRIEND)
+                .operation(Operation.ADD)
+                .entityId(friendId)
                 .build());
 
         log.info("Пользователь {} отправил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
@@ -98,9 +112,18 @@ public class UserService {
 
         if (friendshipStorage.existsByUserIds(userId, friendId)) {
             friendshipStorage.deleteByUserIds(userId, friendId);
+
             friendRequestStorage.save(FriendRequest.builder()
                     .requesterId(friendId)
                     .recipientId(userId)
+                    .build());
+
+            eventStorage.save(Event.builder()
+                    .timestamp(System.currentTimeMillis())
+                    .userId(userId)
+                    .eventType(EventType.FRIEND)
+                    .operation(Operation.REMOVE)
+                    .entityId(friendId)
                     .build());
 
             log.info("Пользователь {} удалил пользователя {} из друзей", user.getLogin(), friend.getLogin());
@@ -109,12 +132,21 @@ public class UserService {
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(userId, friendId)) {
             friendRequestStorage.deleteByRequesterIdAndRecipientId(userId, friendId);
+
+            eventStorage.save(Event.builder()
+                    .timestamp(System.currentTimeMillis())
+                    .userId(userId)
+                    .eventType(EventType.FRIEND)
+                    .operation(Operation.REMOVE)
+                    .entityId(friendId)
+                    .build());
+
             log.info("Пользователь {} отменил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
             return;
         }
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
-            log.info("Пользователь {} не изменил входящую заявку в друзья от пользователя {}",
+            log.info("Пользователь {} проигнорировал попытку удаления входящей заявки от пользователя {} (связь не меняется)",
                     user.getLogin(), friend.getLogin());
             return;
         }
@@ -122,11 +154,12 @@ public class UserService {
         log.info("Связь между пользователями {} и {} отсутствует", user.getLogin(), friend.getLogin());
     }
 
-    public Set<User> findFriends(Long id) {
-        validateId(id);
-        userStorage.findById(id);
+    public Set<User> findFriends(Long userId) {
+        userStorage.findById(userId);
 
-        return getFriendsByIds(findVisibleFriendIdsByUserId(id));
+        Set<Long> friendIds = findVisibleFriendIdsByUserId(userId);
+
+        return getFriendsByIds(friendIds);
     }
 
     public Set<User> findCommonFriends(Long firstId, Long secondId) {

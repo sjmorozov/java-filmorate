@@ -5,13 +5,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.model.Event;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 @Validated
@@ -22,6 +25,7 @@ public class UserController {
 
     private final UserService userService;
     private final FilmService filmService;
+    private final EventStorage eventStorage;
 
     @PostMapping
     public User create(@Valid @RequestBody User user) {
@@ -80,5 +84,11 @@ public class UserController {
     public Collection<Film> getRecommendations(@PathVariable Long id) {
         userService.findById(id);
         return filmService.getRecommendations(id);
+    }
+
+    @GetMapping("/{id}/feed")
+    public List<Event> getFeed(@PathVariable Long id) {
+        userService.findById(id); // Проверка, что пользователь существует
+        return eventStorage.getEventsByUserId(id);
     }
 }
