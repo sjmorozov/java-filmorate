@@ -113,6 +113,11 @@ public class UserService {
         if (friendshipStorage.existsByUserIds(userId, friendId)) {
             friendshipStorage.deleteByUserIds(userId, friendId);
 
+            friendRequestStorage.save(FriendRequest.builder()
+                    .requesterId(friendId)
+                    .recipientId(userId)
+                    .build());
+
             eventStorage.save(Event.builder()
                     .timestamp(System.currentTimeMillis())
                     .userId(userId)
