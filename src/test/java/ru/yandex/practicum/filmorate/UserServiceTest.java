@@ -519,6 +519,17 @@ public class UserServiceTest {
     }
 
     @Test
+    void shouldThrowNotFoundExceptionWhenFriendIdIsNegative() {
+        User firstCreatedUser = saveUser(createValidUser());
+        Long userId = firstCreatedUser.getId();
+        Long negativeFriendId = -1L;
+
+        assertThatThrownBy(() -> userService.addFriend(userId, negativeFriendId))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(userNotFoundMessage(negativeFriendId));
+    }
+
+    @Test
     void shouldThrowNotFoundExceptionWhenUserForRemoveFriendDoesNotExist() {
         User firstCreatedUser = saveUser(createValidUser());
         Long existingFriendId = firstCreatedUser.getId();

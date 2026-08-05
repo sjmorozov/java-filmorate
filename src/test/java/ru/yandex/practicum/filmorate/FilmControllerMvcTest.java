@@ -48,4 +48,12 @@ class FilmControllerMvcTest {
                 .andExpect(jsonPath("$.error").value("Объект не найден"))
                 .andExpect(jsonPath("$.description").value("Фильм с id = 999 не найден"));
     }
+
+    @Test
+    void shouldReturnOkWhenFilmLikeDeleted() throws Exception {
+        mockMvc.perform(delete("/films/1/like/2"))
+                .andExpect(status().isOk());
+
+        verify(filmService).deleteLike(1L, 2L);
+    }
 }

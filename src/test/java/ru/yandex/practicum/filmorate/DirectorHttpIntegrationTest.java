@@ -182,8 +182,8 @@ class DirectorHttpIntegrationTest {
         assertThat(partialUpdateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(partialUpdateResponse.getBody()).isNotNull();
         assertThat(partialUpdateResponse.getBody().getDirectors())
-                .as("При отсутствии поля directors существующая связь должна сохраниться")
-                .containsExactly(secondDirector);
+                .as("При отсутствии поля directors существующая связь должна удалиться")
+                .isEmpty();
 
         restTemplate.delete("/directors/{id}", secondDirector.getId());
         Film filmWithoutDirector = restTemplate.getForObject(

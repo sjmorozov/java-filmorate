@@ -87,7 +87,6 @@ public class FilmController {
         filmService.addLike(id, userId);
     }
 
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}/like/{userId}")
     public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
         filmService.deleteLike(id, userId);

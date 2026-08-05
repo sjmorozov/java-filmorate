@@ -210,7 +210,7 @@ public class FilmServiceTest {
     }
 
     @Test
-    void shouldPreserveFilmDirectorsWhenUpdateDoesNotContainDirectors() {
+    void shouldRemoveFilmDirectorsWhenUpdateDoesNotContainDirectors() {
         Film film = createValidFilm();
         film.setDirectors(Set.of(new Director(1L, null)));
         Film createdFilm = saveFilm(film);
@@ -223,8 +223,8 @@ public class FilmServiceTest {
         Film updatedFilm = filmService.update(filmForUpdate);
 
         assertThat(updatedFilm.getDirectors())
-                .as("Пропущенное поле directors не должно очищать существующую связь")
-                .containsExactly(new Director(1L, "Андрей Тарковский"));
+                .as("Пропущенное поле directors должно очищать существующие связи")
+                .isEmpty();
     }
 
     @Test

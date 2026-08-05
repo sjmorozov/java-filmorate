@@ -214,10 +214,7 @@ public class UserService {
     }
 
     private void validateId(Long id) {
-        if (id == null) {
-            log.warn("Указан невалидный Id = {}", id);
-            throw new ValidationException("Id должен быть указан");
-        }
+        validateIdPresent(id);
 
         if (id <= 0) {
             log.warn("Указан невалидный Id = {}", id);
@@ -225,9 +222,16 @@ public class UserService {
         }
     }
 
+    private void validateIdPresent(Long id) {
+        if (id == null) {
+            log.warn("Указан невалидный Id = {}", id);
+            throw new ValidationException("Id должен быть указан");
+        }
+    }
+
     private FriendshipParticipants getFriendshipParticipants(Long userId, Long friendId, String selfFriendshipMessage) {
         validateId(userId);
-        validateId(friendId);
+        validateIdPresent(friendId);
 
         if (userId.equals(friendId)) {
             throw new ValidationException(selfFriendshipMessage);
