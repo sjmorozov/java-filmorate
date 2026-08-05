@@ -80,7 +80,7 @@ public class UserService {
                     .timestamp(System.currentTimeMillis())
                     .userId(userId)
                     .eventType(EventType.FRIEND)
-                    .operation(Operation.ADD)
+                    .operation(Operation.UPDATE)
                     .entityId(friendId)
                     .build());
 
@@ -113,11 +113,6 @@ public class UserService {
         if (friendshipStorage.existsByUserIds(userId, friendId)) {
             friendshipStorage.deleteByUserIds(userId, friendId);
 
-            friendRequestStorage.save(FriendRequest.builder()
-                    .requesterId(friendId)
-                    .recipientId(userId)
-                    .build());
-
             eventStorage.save(Event.builder()
                     .timestamp(System.currentTimeMillis())
                     .userId(userId)
@@ -146,28 +141,20 @@ public class UserService {
         }
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(friendId, userId)) {
-            friendRequestStorage.deleteByRequesterIdAndRecipientId(friendId, userId);
-
-            eventStorage.save(Event.builder()
-                    .timestamp(System.currentTimeMillis())
-                    .userId(userId)
-                    .eventType(EventType.FRIEND)
-                    .operation(Operation.REMOVE)
-                    .entityId(friendId)
-                    .build());
-
-            log.info("Пользователь {} удалил входящую заявку в друзья от пользователя {}", user.getLogin(), friend.getLogin());
+            log.info("Пользователь {} проигнорировал попытку удаления входящей заявки от пользователя {} (связь не меняется)",
+                    user.getLogin(), friend.getLogin());
             return;
         }
 
         log.info("Связь между пользователями {} и {} отсутствует", user.getLogin(), friend.getLogin());
     }
 
-    public Set<User> findFriends(Long id) {
-        validateId(id);
-        userStorage.findById(id);
+    public Set<User> findFriends(Long userId) {
+        userStorage.findById(userId);
 
-        return getFriendsByIds(findVisibleFriendIdsByUserId(id));
+        Set<Long> friendIds = findVisibleFriendIdsByUserId(userId);
+
+        return getFriendsByIds(friendIds);
     }
 
     public Set<User> findCommonFriends(Long firstId, Long secondId) {

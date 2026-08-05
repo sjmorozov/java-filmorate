@@ -40,14 +40,12 @@ class UserControllerFeedIntegrationTest {
     }
 
     @Test
-    void getFeed_shouldReturnEventsSortedByTimestampDesc() throws Exception {
+    void getFeed_shouldReturnEventsSortedChronologically() throws Exception {
         User u1 = userService.create(User.builder().email("u1@test.com").login("u1").name("Test").birthday(LocalDate.of(1990, 1, 1)).build());
         User u2 = userService.create(User.builder().email("u2@test.com").login("u2").name("Test").birthday(LocalDate.of(1990, 1, 1)).build());
         Film f1 = filmService.create(Film.builder().name("Film 1").description("Desc").releaseDate(LocalDate.of(2020, 1, 1)).duration(120).build());
 
         userService.addFriend(u1.getId(), u2.getId());
-
-        Thread.sleep(10);
 
         filmService.addLike(f1.getId(), u1.getId());
 
@@ -55,11 +53,12 @@ class UserControllerFeedIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].eventType").value("LIKE"))
+
+                .andExpect(jsonPath("$[0].eventType").value("FRIEND"))
                 .andExpect(jsonPath("$[0].operation").value("ADD"))
-                .andExpect(jsonPath("$[0].entityId").value(f1.getId()))
-                .andExpect(jsonPath("$[1].eventType").value("FRIEND"))
+                .andExpect(jsonPath("$[0].entityId").value(u2.getId()))
+                .andExpect(jsonPath("$[1].eventType").value("LIKE"))
                 .andExpect(jsonPath("$[1].operation").value("ADD"))
-                .andExpect(jsonPath("$[1].entityId").value(u2.getId()));
+                .andExpect(jsonPath("$[1].entityId").value(f1.getId()));
     }
 }
