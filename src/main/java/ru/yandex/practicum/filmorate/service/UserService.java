@@ -245,6 +245,7 @@ public class UserService {
 
     private Set<User> getFriendsByIds(Set<Long> ids) {
         return ids.stream()
+                .sorted()
                 .map(userStorage::findById)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }

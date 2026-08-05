@@ -454,9 +454,9 @@ public class UserServiceTest {
         Set<User> resultFriends = userService.findFriends(firstCreatedUser.getId());
 
         assertThat(resultFriends)
-                .as("Список друзей должен состоять ровно из пользователей с ID второго и третьего")
+                .as("Список друзей должен быть отсортирован по ID")
                 .extracting(User::getId)
-                .containsExactlyInAnyOrder(secondCreatedUser.getId(), thirdCreatedUser.getId());
+                .containsExactly(secondCreatedUser.getId(), thirdCreatedUser.getId());
     }
 
     @Test
