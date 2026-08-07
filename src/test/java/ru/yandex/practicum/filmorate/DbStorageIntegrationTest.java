@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.model.FriendRequest;
 import ru.yandex.practicum.filmorate.model.Friendship;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.filmgenre.FilmGenreDbStorage;
@@ -20,6 +21,8 @@ import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestDbStorag
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipDbStorage;
 import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
 import ru.yandex.practicum.filmorate.storage.mparating.MpaRatingDbStorage;
+import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
+import ru.yandex.practicum.filmorate.storage.reviewreaction.ReviewReactionDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
@@ -39,7 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         FilmGenreDbStorage.class,
         FilmLikeDbStorage.class,
         FriendRequestDbStorage.class,
-        FriendshipDbStorage.class
+        FriendshipDbStorage.class,
+        ReviewDbStorage.class,
+        ReviewReactionDbStorage.class
 })
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class DbStorageIntegrationTest {
@@ -61,6 +66,10 @@ class DbStorageIntegrationTest {
     private final FriendRequestDbStorage friendRequestStorage;
 
     private final FriendshipDbStorage friendshipStorage;
+
+    private final ReviewDbStorage reviewStorage;
+
+    private final ReviewReactionDbStorage reviewReactionStorage;
 
     @Test
     void userStorageShouldCreateUpdateFindAndDeleteUser() {
@@ -108,6 +117,24 @@ class DbStorageIntegrationTest {
                 .isEmpty();
     }
 
+    /**
+     * Лайки удалённого пользователя должны удаляться каскадом (fk_film_likes_user ON DELETE CASCADE),
+     * не оставляя "осиротевших" строк в film_likes.
+     */
+    @Test
+    void userStorageShouldDeleteRelatedLikesByCascade() {
+        User user = userStorage.add(createUser("neo"));
+        Film film = filmStorage.add(createFilm("Liked Film", 100, 1));
+
+        filmLikeStorage.add(film.getId(), user.getId());
+
+        userStorage.delete(user.getId());
+
+        assertThat(filmLikeStorage.findUserIdsByFilmId(film.getId()))
+                .as("Лайк удалённого пользователя не должен оставаться у фильма")
+                .isEmpty();
+    }
+
     @Test
     void filmStorageShouldCreateUpdateFindAndDeleteFilm() {
         Film film = filmStorage.add(createFilm("Matrix", 136, 1));
@@ -135,6 +162,28 @@ class DbStorageIntegrationTest {
 
         assertThatThrownBy(() -> filmStorage.findById(film.getId()))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    /**
+     * Жанры и лайки удалённого фильма должны удаляться каскадом
+     * (fk_film_genres_film / fk_film_likes_film ON DELETE CASCADE), не оставляя "осиротевших" строк.
+     */
+    @Test
+    void filmStorageShouldDeleteRelatedGenresAndLikesByCascade() {
+        User user = userStorage.add(createUser("neo"));
+        Film film = filmStorage.add(createFilm("Genre and Likes Film", 100, 1));
+
+        filmGenreStorage.replaceByFilmId(film.getId(), Set.of(new Genre(1, null)));
+        filmLikeStorage.add(film.getId(), user.getId());
+
+        filmStorage.delete(film.getId());
+
+        assertThat(filmGenreStorage.findByFilmId(film.getId()))
+                .as("Жанры удалённого фильма не должны оставаться в film_genres")
+                .isEmpty();
+        assertThat(filmLikeStorage.findUserIdsByFilmId(film.getId()))
+                .as("Лайки удалённого фильма не должны оставаться в film_likes")
+                .isEmpty();
     }
 
     @Test
@@ -250,10 +299,153 @@ class DbStorageIntegrationTest {
         filmLikeStorage.add(secondFilm.getId(), secondUser.getId());
         filmLikeStorage.add(thirdFilm.getId(), firstUser.getId());
 
-        assertThat(filmLikeStorage.findPopularFilmIds(3))
+        assertThat(filmLikeStorage.findPopularFilmIds(3, null, null))
                 .containsExactly(secondFilm.getId(), thirdFilm.getId(), firstFilm.getId());
-        assertThat(filmLikeStorage.findPopularFilmIds(2))
+        assertThat(filmLikeStorage.findPopularFilmIds(2, null, null))
                 .containsExactly(secondFilm.getId(), thirdFilm.getId());
+    }
+
+    /**
+     * SQL findPopularFilmIds должен отбирать по genreId через film_genres, не искажая счётчик лайков.
+     */
+    @Test
+    void filmLikeStorageShouldFilterPopularFilmIdsByGenre() {
+        User user = userStorage.add(createUser("trinity"));
+        Film comedyFilm = filmStorage.add(createFilm("Comedy Film", 100, 1));
+        Film dramaFilm = filmStorage.add(createFilm("Drama Film", 101, 1));
+
+        filmGenreStorage.replaceByFilmId(comedyFilm.getId(), Set.of(new Genre(1, null)));
+        filmGenreStorage.replaceByFilmId(dramaFilm.getId(), Set.of(new Genre(2, null)));
+
+        filmLikeStorage.add(comedyFilm.getId(), user.getId());
+        filmLikeStorage.add(dramaFilm.getId(), user.getId());
+
+        assertThat(filmLikeStorage.findPopularFilmIds(10, 1, null))
+                .containsExactly(comedyFilm.getId());
+    }
+
+    /**
+     * SQL findPopularFilmIds должен отбирать по году релиза через диапазон дат.
+     */
+    @Test
+    void filmLikeStorageShouldFilterPopularFilmIdsByYear() {
+        Film filmFromTargetYear = filmStorage.add(createFilm("Target Year Film", 100, 1, LocalDate.of(2010, 5, 1)));
+        filmStorage.add(createFilm("Other Year Film", 101, 1, LocalDate.of(2015, 5, 1)));
+
+        assertThat(filmLikeStorage.findPopularFilmIds(10, null, 2010))
+                .containsExactly(filmFromTargetYear.getId());
+    }
+
+    /**
+     * SQL findPopularFilmIds должен объединять фильтры по жанру и году через AND.
+     */
+    @Test
+    void filmLikeStorageShouldFilterPopularFilmIdsByGenreAndYear() {
+        Film matchingFilm = filmStorage.add(createFilm("Matching Film", 100, 1, LocalDate.of(2010, 5, 1)));
+        Film wrongYearFilm = filmStorage.add(createFilm("Wrong Year Film", 101, 1, LocalDate.of(2015, 5, 1)));
+        Film wrongGenreFilm = filmStorage.add(createFilm("Wrong Genre Film", 102, 1, LocalDate.of(2010, 5, 1)));
+
+        filmGenreStorage.replaceByFilmId(matchingFilm.getId(), Set.of(new Genre(1, null)));
+        filmGenreStorage.replaceByFilmId(wrongYearFilm.getId(), Set.of(new Genre(1, null)));
+        filmGenreStorage.replaceByFilmId(wrongGenreFilm.getId(), Set.of(new Genre(2, null)));
+
+        assertThat(filmLikeStorage.findPopularFilmIds(10, 1, 2010))
+                .containsExactly(matchingFilm.getId());
+    }
+
+    @Test
+    void reviewStorageShouldCreateAndFindReview() {
+        User user = userStorage.add(createUser("reviewer"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = Review.builder()
+                .content("Очень содержательный отзыв")
+                .isPositive(true)
+                .userId(user.getId())
+                .filmId(film.getId())
+                .build();
+
+        Review savedReview = reviewStorage.add(review);
+
+        assertThat(savedReview.getReviewId()).isPositive();
+        assertThat(savedReview.getUseful()).isZero();
+        assertThat(reviewStorage.findById(savedReview.getReviewId()))
+                .isEqualTo(savedReview);
+    }
+
+    @Test
+    void reviewStorageShouldUpdateAndDeleteReview() {
+        User user = userStorage.add(createUser("reviewer"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = reviewStorage.add(createReview(user.getId(), film.getId(), "Первоначальный отзыв", true));
+
+        review.setContent("Обновлённый отзыв");
+        review.setIsPositive(false);
+
+        Review updatedReview = reviewStorage.update(review);
+
+        assertThat(updatedReview.getContent()).isEqualTo("Обновлённый отзыв");
+        assertThat(updatedReview.getIsPositive()).isFalse();
+        assertThat(updatedReview.getUserId()).isEqualTo(user.getId());
+        assertThat(updatedReview.getFilmId()).isEqualTo(film.getId());
+
+        reviewStorage.delete(review.getReviewId());
+
+        assertThatThrownBy(() -> reviewStorage.findById(review.getReviewId()))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void reviewStorageShouldFilterSortAndLimitReviewsByUsefulness() {
+        User author = userStorage.add(createUser("reviewer"));
+        User firstReactor = userStorage.add(createUser("first-reactor"));
+        User secondReactor = userStorage.add(createUser("second-reactor"));
+        Film firstFilm = filmStorage.add(createFilm("Первый фильм с отзывами", 120, 1));
+        Film secondFilm = filmStorage.add(createFilm("Второй фильм с отзывами", 121, 1));
+
+        Review usefulReview = reviewStorage.add(
+                createReview(author.getId(), firstFilm.getId(), "Полезный отзыв", true)
+        );
+        Review dislikedReview = reviewStorage.add(
+                createReview(author.getId(), firstFilm.getId(), "Неполезный отзыв", false)
+        );
+        Review otherFilmReview = reviewStorage.add(
+                createReview(author.getId(), secondFilm.getId(), "Отзыв к другому фильму", true)
+        );
+
+        reviewReactionStorage.save(usefulReview.getReviewId(), firstReactor.getId(), true);
+        reviewReactionStorage.save(usefulReview.getReviewId(), secondReactor.getId(), true);
+        reviewReactionStorage.save(dislikedReview.getReviewId(), firstReactor.getId(), false);
+
+        assertThat(reviewStorage.findMostUseful(firstFilm.getId(), 10))
+                .extracting(Review::getReviewId)
+                .containsExactly(usefulReview.getReviewId(), dislikedReview.getReviewId());
+        assertThat(reviewStorage.findMostUseful(firstFilm.getId(), 1))
+                .extracting(Review::getReviewId)
+                .containsExactly(usefulReview.getReviewId());
+        assertThat(reviewStorage.findMostUseful(null, 10))
+                .extracting(Review::getReviewId)
+                .containsExactly(
+                        usefulReview.getReviewId(),
+                        otherFilmReview.getReviewId(),
+                        dislikedReview.getReviewId()
+                );
+    }
+
+    @Test
+    void reviewReactionStorageShouldReplaceAndDeleteReaction() {
+        User author = userStorage.add(createUser("reviewer"));
+        User reactor = userStorage.add(createUser("reactor"));
+        Film film = filmStorage.add(createFilm("Фильм с отзывами", 120, 1));
+        Review review = reviewStorage.add(createReview(author.getId(), film.getId(), "Отзыв", true));
+
+        reviewReactionStorage.save(review.getReviewId(), reactor.getId(), true);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isEqualTo(1);
+
+        reviewReactionStorage.save(review.getReviewId(), reactor.getId(), false);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isEqualTo(-1);
+
+        reviewReactionStorage.delete(review.getReviewId(), reactor.getId(), false);
+        assertThat(reviewStorage.findById(review.getReviewId()).getUseful()).isZero();
     }
 
     @Test
@@ -330,12 +522,25 @@ class DbStorageIntegrationTest {
     }
 
     private Film createFilm(String name, int duration, int mpaId) {
+        return createFilm(name, duration, mpaId, FILM_RELEASE_DATE);
+    }
+
+    private Film createFilm(String name, int duration, int mpaId, LocalDate releaseDate) {
         return Film.builder()
                 .name(name)
                 .description(name + " description")
-                .releaseDate(FILM_RELEASE_DATE)
+                .releaseDate(releaseDate)
                 .duration(duration)
                 .mpa(new MpaRating(mpaId, null))
+                .build();
+    }
+
+    private Review createReview(Long userId, Long filmId, String content, boolean isPositive) {
+        return Review.builder()
+                .content(content)
+                .isPositive(isPositive)
+                .userId(userId)
+                .filmId(filmId)
                 .build();
     }
 }

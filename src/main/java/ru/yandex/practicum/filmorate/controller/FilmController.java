@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.yandex.practicum.filmorate.model.DirectorFilmSort;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
 
@@ -46,11 +47,31 @@ public class FilmController {
         filmService.delete(id);
     }
 
+    /**
+     * Возвращает топ-N фильмов по количеству лайков.
+     *
+     * @param count   максимальное число фильмов в ответе
+     * @param genreId если указан, в ответ попадут только фильмы этого жанра
+     * @param year    если указан, в ответ попадут только фильмы с этим годом релиза
+     */
     @GetMapping("/popular")
     public Collection<Film> findPopular(@RequestParam(name = "count", defaultValue = DEFAULT_POPULAR_FILMS_COUNT)
-                                            @Positive(message = "Параметр count должен быть больше нуля")
-                                            int count) {
-        return filmService.findPopular(count);
+                                        @Positive(message = "Параметр count должен быть больше нуля")
+                                        int count,
+                                        @RequestParam(required = false)
+                                        @Positive(message = "Параметр genreId должен быть больше нуля")
+                                        Integer genreId,
+                                        @RequestParam(required = false)
+                                        @Positive(message = "Параметр year должен быть больше нуля")
+                                        Integer year) {
+        return filmService.findPopular(count, genreId, year);
+    }
+
+    @GetMapping("/director/{directorId}")
+    public Collection<Film> findByDirector(@PathVariable
+                                           @Positive(message = "Id режиссёра должен быть положительным") Long directorId,
+                                           @RequestParam DirectorFilmSort sortBy) {
+        return filmService.findByDirector(directorId, sortBy);
     }
 
     @GetMapping("/{id}")
@@ -68,9 +89,26 @@ public class FilmController {
         filmService.addLike(id, userId);
     }
 
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}/like/{userId}")
     public void deleteLike(@PathVariable Long id, @PathVariable Long userId) {
         filmService.deleteLike(id, userId);
+    }
+
+    @GetMapping("/common")
+    public Collection<Film> findCommonFilms(
+            @RequestParam Long userId,
+            @RequestParam Long friendId) {
+        return filmService.findCommonFilms(userId, friendId);
+    }
+
+    /**
+     * Ищет фильмы по подстроке в названии и/или в имени режиссёра, отсортированные по популярности.
+     *
+     * @param query текст для поиска
+     * @param by    "title", "director" или оба через запятую
+     */
+    @GetMapping("/search")
+    public Collection<Film> search(@RequestParam String query, @RequestParam String by) {
+        return filmService.search(query, by);
     }
 }

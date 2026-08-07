@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
@@ -27,6 +28,7 @@ public class FilmServiceTest {
 
     private static final Long NON_EXISTENT_FILM_ID = 999L;
     private static final Long NON_EXISTENT_USER_ID = 999L;
+    private static final Integer NON_EXISTENT_GENRE_ID = 999;
 
     private static final String VALID_NAME = "Матрица";
     private static final String VALID_DESCRIPTION = "Человек узнаёт правду о реальности и выбирает красную таблетку.";
@@ -169,6 +171,76 @@ public class FilmServiceTest {
     }
 
     @Test
+    void shouldCreateFilmWithDirectors() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(
+                new Director(1L, null),
+                new Director(2L, null)
+        ));
+
+        Film result = saveFilm(film);
+
+        assertThat(result.getDirectors())
+                .as("Режиссёры фильма должны сохраниться с именами из справочника")
+                .containsExactlyInAnyOrder(
+                        new Director(1L, "Андрей Тарковский"),
+                        new Director(2L, "Кристофер Нолан")
+                );
+        assertThat(filmService.findById(result.getId()).getDirectors())
+                .as("Режиссёры должны загружаться при повторном получении фильма")
+                .containsExactlyInAnyOrderElementsOf(result.getDirectors());
+    }
+
+    @Test
+    void shouldReplaceFilmDirectorsOnUpdate() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(1L, null)));
+        Film createdFilm = saveFilm(film);
+
+        Film filmForUpdate = Film.builder()
+                .id(createdFilm.getId())
+                .directors(Set.of(new Director(2L, null)))
+                .build();
+
+        Film updatedFilm = filmService.update(filmForUpdate);
+
+        assertThat(updatedFilm.getDirectors())
+                .as("После обновления у фильма должен остаться новый режиссёр")
+                .containsExactly(new Director(2L, "Кристофер Нолан"));
+    }
+
+    @Test
+    void shouldRemoveFilmDirectorsWhenUpdateDoesNotContainDirectors() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(1L, null)));
+        Film createdFilm = saveFilm(film);
+
+        Film filmForUpdate = Film.builder()
+                .id(createdFilm.getId())
+                .name("Новое название")
+                .build();
+
+        Film updatedFilm = filmService.update(filmForUpdate);
+
+        assertThat(updatedFilm.getDirectors())
+                .as("Пропущенное поле directors должно очищать существующие связи")
+                .isEmpty();
+    }
+
+    @Test
+    void shouldThrowNotFoundExceptionWhenDirectorDoesNotExist() {
+        Film film = createValidFilm();
+        film.setDirectors(Set.of(new Director(999L, null)));
+
+        assertThatThrownBy(() -> saveFilm(film))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Режиссёр с id = 999 не найден");
+        assertThat(filmService.findAll())
+                .as("Фильм с неизвестным режиссёром не должен быть сохранён")
+                .isEmpty();
+    }
+
+    @Test
     void shouldCreateFilmWithMinReleaseDate() {
         Film film = createValidFilm();
         film.setReleaseDate(MIN_RELEASE_DATE);
@@ -293,6 +365,33 @@ public class FilmServiceTest {
                 .isEqualTo(1L);
     }
 
+    /**
+     * После удаления фильм должен пропасть как из списка всех фильмов, так и по findById.
+     */
+    @Test
+    void shouldDeleteFilm() {
+        Film createdFilm = saveFilm(createValidFilm());
+
+        filmService.delete(createdFilm.getId());
+
+        assertThatThrownBy(() -> filmService.findById(createdFilm.getId()))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(createdFilm.getId()));
+        assertThat(filmService.findAll())
+                .as("Удалённый фильм не должен оставаться в списке")
+                .isEmpty();
+    }
+
+    /**
+     * Удаление несуществующего фильма должно кидать NotFoundException, а не проходить молча.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenDeleteFilmDoesNotExist() {
+        assertThatThrownBy(() -> filmService.delete(NON_EXISTENT_FILM_ID))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(filmNotFoundMessage(NON_EXISTENT_FILM_ID));
+    }
+
     @Test
     void shouldAssignIncrementalIdsWhenSeveralFilmsCreated() {
         Film firstCreatedFilm = saveFilm(createValidFilm());
@@ -366,7 +465,7 @@ public class FilmServiceTest {
         filmService.addLike(secondFilm.getId(), secondUser.getId());
         filmService.addLike(thirdFilm.getId(), firstUser.getId());
 
-        List<Film> popularFilms = filmService.findPopular(3).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(3, null, null).stream().toList();
 
         assertThat(popularFilms.get(0).getId())
                 .as("Первым должен быть фильм с двумя лайками")
@@ -388,7 +487,7 @@ public class FilmServiceTest {
 
         filmService.addLike(secondFilm.getId(), user.getId());
 
-        List<Film> popularFilms = filmService.findPopular(1).stream().toList();
+        List<Film> popularFilms = filmService.findPopular(1, null, null).stream().toList();
 
         assertThat(popularFilms)
                 .as("Должен вернуться только один фильм")
@@ -396,6 +495,108 @@ public class FilmServiceTest {
         assertThat(popularFilms.get(0).getId())
                 .as("Должен вернуться самый популярный фильм")
                 .isEqualTo(secondFilm.getId());
+    }
+
+    /**
+     * Фильм с не тем жанром не должен попадать в топ популярных при фильтрации по genreId.
+     */
+    @Test
+    void shouldFilterPopularFilmsByGenre() {
+        Film comedyFilm = createValidFilm();
+        comedyFilm.setGenres(Set.of(new Genre(1, "Комедия")));
+        Film savedComedyFilm = saveFilm(comedyFilm);
+
+        Film dramaFilm = createThirdValidFilm();
+        dramaFilm.setGenres(Set.of(new Genre(2, "Драма")));
+        Film savedDramaFilm = saveFilm(dramaFilm);
+
+        User user = saveUser(createFirstUser());
+        filmService.addLike(savedComedyFilm.getId(), user.getId());
+        filmService.addLike(savedDramaFilm.getId(), user.getId());
+
+        List<Film> popularFilms = filmService.findPopular(10, 1, null).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм с жанром Комедия")
+                .extracting(Film::getId)
+                .containsExactly(savedComedyFilm.getId());
+    }
+
+    /**
+     * Фильм с другим годом релиза не должен попадать в топ популярных при фильтрации по year.
+     */
+    @Test
+    void shouldFilterPopularFilmsByYear() {
+        Film filmFromTargetYear = saveFilm(createValidFilm());
+        saveFilm(createThirdValidFilm());
+
+        List<Film> popularFilms = filmService.findPopular(10, null, VALID_RELEASE_DATE.getYear()).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм с нужным годом релиза")
+                .extracting(Film::getId)
+                .containsExactly(filmFromTargetYear.getId());
+    }
+
+    /**
+     * При одновременной фильтрации по genreId и year должен остаться только фильм, подходящий под оба условия.
+     */
+    @Test
+    void shouldFilterPopularFilmsByGenreAndYear() {
+        Film matchingFilm = createValidFilm();
+        matchingFilm.setGenres(Set.of(new Genre(4, "Триллер")));
+        Film savedMatchingFilm = saveFilm(matchingFilm);
+
+        Film wrongYearFilm = createThirdValidFilm();
+        wrongYearFilm.setGenres(Set.of(new Genre(4, "Триллер")));
+        saveFilm(wrongYearFilm);
+
+        Film wrongGenreFilm = create(SECOND_FILM_NAME, SECOND_FILM_DESCRIPTION, VALID_RELEASE_DATE, SECOND_FILM_DURATION);
+        wrongGenreFilm.setGenres(Set.of(new Genre(2, "Драма")));
+        saveFilm(wrongGenreFilm);
+
+        List<Film> popularFilms = filmService.findPopular(10, 4, VALID_RELEASE_DATE.getYear()).stream().toList();
+
+        assertThat(popularFilms)
+                .as("Должен вернуться только фильм, подходящий и по жанру, и по году")
+                .extracting(Film::getId)
+                .containsExactly(savedMatchingFilm.getId());
+    }
+
+    /**
+     * Несуществующий genreId в фильтре популярных фильмов должен приводить к NotFoundException.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenPopularGenreDoesNotExist() {
+        assertThatThrownBy(() -> filmService.findPopular(10, NON_EXISTENT_GENRE_ID, null))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Жанр с id = " + NON_EXISTENT_GENRE_ID + " не найден");
+    }
+
+    /**
+     * Год раньше появления кино (1895) в фильтре популярных фильмов должен приводить к ValidationException.
+     */
+    @Test
+    void shouldThrowValidationExceptionWhenPopularYearBeforeMinReleaseDate() {
+        int year = MIN_RELEASE_DATE.getYear() - 1;
+
+        assertThatThrownBy(() -> filmService.findPopular(10, null, year))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр year должен быть в диапазоне от " + MIN_RELEASE_DATE.getYear()
+                        + " до " + LocalDate.now().getYear());
+    }
+
+    /**
+     * Год из будущего в фильтре популярных фильмов должен приводить к ValidationException.
+     */
+    @Test
+    void shouldThrowValidationExceptionWhenPopularYearIsInFuture() {
+        int year = LocalDate.now().getYear() + 1;
+
+        assertThatThrownBy(() -> filmService.findPopular(10, null, year))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр year должен быть в диапазоне от " + MIN_RELEASE_DATE.getYear()
+                        + " до " + LocalDate.now().getYear());
     }
 
     @Test
@@ -432,5 +633,86 @@ public class FilmServiceTest {
         assertThatThrownBy(() -> filmService.deleteLike(film.getId(), NON_EXISTENT_USER_ID))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
+    }
+
+    /**
+     * Поиск по названию должен находить все фильмы с подстрокой в имени, сортируя по популярности.
+     */
+    @Test
+    void shouldSearchFilmsByTitle() {
+        Film matrix = saveFilm(createValidFilm());
+        Film matrixRevolutions = saveFilm(createSecondValidFilm());
+        saveFilm(createThirdValidFilm());
+
+        User user = saveUser(createFirstUser());
+        filmService.addLike(matrixRevolutions.getId(), user.getId());
+
+        List<Film> result = filmService.search("матриц", "title").stream().toList();
+
+        assertThat(result)
+                .as("Первым должен быть более популярный фильм с подстрокой 'матриц' в названии")
+                .extracting(Film::getId)
+                .containsExactly(matrixRevolutions.getId(), matrix.getId());
+    }
+
+    /**
+     * Поиск по режиссёру должен находить фильмы через имя режиссёра, а не через название фильма.
+     */
+    @Test
+    void shouldSearchFilmsByDirector() {
+        Film interstellar = createThirdValidFilm();
+        interstellar.setDirectors(Set.of(new Director(2L, "Кристофер Нолан")));
+        Film savedInterstellar = saveFilm(interstellar);
+
+        saveFilm(createValidFilm());
+
+        List<Film> result = filmService.search("нолан", "director").stream().toList();
+
+        assertThat(result)
+                .as("Должен найтись только фильм режиссёра, чьё имя содержит запрос")
+                .extracting(Film::getId)
+                .containsExactly(savedInterstellar.getId());
+    }
+
+    /**
+     * При by=director,title фильм должен попадать в результат, если совпадение есть хотя бы по одному полю.
+     */
+    @Test
+    void shouldSearchFilmsByTitleAndDirectorCombined() {
+        Film titleMatch = create("План побега", VALID_DESCRIPTION, VALID_RELEASE_DATE, VALID_DURATION);
+        Film savedTitleMatch = saveFilm(titleMatch);
+
+        Film directorMatch = createFourthValidFilm();
+        directorMatch.setDirectors(Set.of(new Director(2L, "Кристофер Нолан")));
+        Film savedDirectorMatch = saveFilm(directorMatch);
+
+        saveFilm(createSecondValidFilm());
+
+        List<Film> result = filmService.search("лан", "director,title").stream().toList();
+
+        assertThat(result)
+                .as("Должны найтись фильм с совпадением по названию и фильм с совпадением по режиссёру")
+                .extracting(Film::getId)
+                .containsExactlyInAnyOrder(savedTitleMatch.getId(), savedDirectorMatch.getId());
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchQueryIsBlank() {
+        assertThatThrownBy(() -> filmService.search(" ", "title"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр query должен быть указан");
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchByIsBlank() {
+        assertThatThrownBy(() -> filmService.search("матрица", " "))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Параметр by должен быть указан");
+    }
+
+    @Test
+    void shouldThrowValidationExceptionWhenSearchByHasUnknownValue() {
+        assertThatThrownBy(() -> filmService.search("матрица", "actor"))
+                .isInstanceOf(ValidationException.class);
     }
 }
