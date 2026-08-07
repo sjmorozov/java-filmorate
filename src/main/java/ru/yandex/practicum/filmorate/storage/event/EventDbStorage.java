@@ -1,22 +1,21 @@
 package ru.yandex.practicum.filmorate.storage.event;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
+import ru.yandex.practicum.filmorate.mapper.EventMapper;
 import ru.yandex.practicum.filmorate.model.Event;
-import ru.yandex.practicum.filmorate.model.EventType;
-import ru.yandex.practicum.filmorate.model.Operation;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
-public class EventDbStorage implements EventStorage {
-    private final JdbcTemplate jdbcTemplate;
+public class EventDbStorage extends BaseDbStorage<Event> implements EventStorage {
+
+    public EventDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public void save(Event event) {
@@ -25,9 +24,7 @@ public class EventDbStorage implements EventStorage {
                 VALUES (?, ?, ?, ?, ?)
                 """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
+        long eventId = insert(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, event.getTimestamp());
             ps.setLong(2, event.getUserId());
@@ -35,9 +32,9 @@ public class EventDbStorage implements EventStorage {
             ps.setString(4, event.getOperation().name());
             ps.setLong(5, event.getEntityId());
             return ps;
-        }, keyHolder);
+        }, "Не удалось получить id созданного события");
 
-        event.setEventId(keyHolder.getKey().longValue());
+        event.setEventId(eventId);
     }
 
     @Override
@@ -49,13 +46,6 @@ public class EventDbStorage implements EventStorage {
                 ORDER BY timestamp ASC, event_id ASC
                 """;
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> Event.builder()
-                .eventId(rs.getLong("event_id"))
-                .timestamp(rs.getLong("timestamp"))
-                .userId(rs.getLong("user_id"))
-                .eventType(EventType.valueOf(rs.getString("event_type")))
-                .operation(Operation.valueOf(rs.getString("operation")))
-                .entityId(rs.getLong("entity_id"))
-                .build(), userId);
+        return queryMany(sql, EventMapper::mapRow, userId);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import ru.yandex.practicum.filmorate.exception.ErrorResponse;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -84,5 +85,12 @@ public class ErrorHandler {
     public ErrorResponse handleMissingServletRequestParameter(final MissingServletRequestParameterException e) {
         return new ErrorResponse("Ошибка валидации",
                 "Обязательный параметр '" + e.getParameterName() + "' не указан");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMethodArgumentTypeMismatch(final MethodArgumentTypeMismatchException e) {
+        return new ErrorResponse("Ошибка валидации",
+                "Параметр '" + e.getName() + "' имеет недопустимое значение: " + e.getValue());
     }
 }

@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.EventMapper;
+import ru.yandex.practicum.filmorate.mapper.FriendRelationMapper;
 import ru.yandex.practicum.filmorate.model.*;
 import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
@@ -12,6 +14,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -59,6 +62,11 @@ public class UserService {
         return userStorage.findAll();
     }
 
+    public List<Event> getFeed(Long userId) {
+        userStorage.findById(userId);
+        return eventStorage.getEventsByUserId(userId);
+    }
+
     public void addFriend(Long userId, Long friendId) {
         FriendshipParticipants participants = getFriendshipParticipants(userId, friendId,
                 "Пользователь не может добавить самого себя в друзья: id = " + userId + ".");
@@ -71,35 +79,17 @@ public class UserService {
         }
 
         if (friendRequestStorage.deleteIfExistsByRequesterIdAndRecipientId(friendId, userId)) {
-            friendshipStorage.save(Friendship.builder()
-                    .firstUserId(userId)
-                    .secondUserId(friendId)
-                    .build());
+            friendshipStorage.save(FriendRelationMapper.toFriendship(userId, friendId));
 
-            eventStorage.save(Event.builder()
-                    .timestamp(System.currentTimeMillis())
-                    .userId(userId)
-                    .eventType(EventType.FRIEND)
-                    .operation(Operation.UPDATE)
-                    .entityId(friendId)
-                    .build());
+            eventStorage.save(EventMapper.toEvent(userId, EventType.FRIEND, Operation.UPDATE, friendId));
 
             log.info("Пользователь {} подтвердил дружбу с пользователем {}", user.getLogin(), friend.getLogin());
             return;
         }
 
-        friendRequestStorage.save(FriendRequest.builder()
-                .requesterId(userId)
-                .recipientId(friendId)
-                .build());
+        friendRequestStorage.save(FriendRelationMapper.toFriendRequest(userId, friendId));
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(userId)
-                .eventType(EventType.FRIEND)
-                .operation(Operation.ADD)
-                .entityId(friendId)
-                .build());
+        eventStorage.save(EventMapper.toEvent(userId, EventType.FRIEND, Operation.ADD, friendId));
 
         log.info("Пользователь {} отправил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
     }
@@ -113,18 +103,9 @@ public class UserService {
         if (friendshipStorage.existsByUserIds(userId, friendId)) {
             friendshipStorage.deleteByUserIds(userId, friendId);
 
-            friendRequestStorage.save(FriendRequest.builder()
-                    .requesterId(friendId)
-                    .recipientId(userId)
-                    .build());
+            friendRequestStorage.save(FriendRelationMapper.toFriendRequest(friendId, userId));
 
-            eventStorage.save(Event.builder()
-                    .timestamp(System.currentTimeMillis())
-                    .userId(userId)
-                    .eventType(EventType.FRIEND)
-                    .operation(Operation.REMOVE)
-                    .entityId(friendId)
-                    .build());
+            eventStorage.save(EventMapper.toEvent(userId, EventType.FRIEND, Operation.REMOVE, friendId));
 
             log.info("Пользователь {} удалил пользователя {} из друзей", user.getLogin(), friend.getLogin());
             return;
@@ -133,13 +114,7 @@ public class UserService {
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(userId, friendId)) {
             friendRequestStorage.deleteByRequesterIdAndRecipientId(userId, friendId);
 
-            eventStorage.save(Event.builder()
-                    .timestamp(System.currentTimeMillis())
-                    .userId(userId)
-                    .eventType(EventType.FRIEND)
-                    .operation(Operation.REMOVE)
-                    .entityId(friendId)
-                    .build());
+            eventStorage.save(EventMapper.toEvent(userId, EventType.FRIEND, Operation.REMOVE, friendId));
 
             log.info("Пользователь {} отменил заявку в друзья пользователю {}", user.getLogin(), friend.getLogin());
             return;
@@ -186,23 +161,23 @@ public class UserService {
         User secondUser = participants.friend();
 
         if (friendshipStorage.existsByUserIds(firstUserId, secondUserId)) {
-            return buildFriendRelationStatusResponse(firstUser, secondUser, FriendRelationStatus.FRIENDS,
+            return FriendRelationMapper.toStatusResponse(firstUser, secondUser, FriendRelationStatus.FRIENDS,
                     firstUser.getName() + " и " + secondUser.getName() + " являются друзьями");
         }
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(firstUserId, secondUserId)) {
-            return buildFriendRelationStatusResponse(firstUser, secondUser,
+            return FriendRelationMapper.toStatusResponse(firstUser, secondUser,
                     FriendRelationStatus.FIRST_REQUESTED_SECOND,
                     firstUser.getName() + " отправил заявку в друзья пользователю " + secondUser.getName());
         }
 
         if (friendRequestStorage.existsByRequesterIdAndRecipientId(secondUserId, firstUserId)) {
-            return buildFriendRelationStatusResponse(firstUser, secondUser,
+            return FriendRelationMapper.toStatusResponse(firstUser, secondUser,
                     FriendRelationStatus.SECOND_REQUESTED_FIRST,
                     secondUser.getName() + " отправил заявку в друзья пользователю " + firstUser.getName());
         }
 
-        return buildFriendRelationStatusResponse(firstUser, secondUser, FriendRelationStatus.NO_RELATION,
+        return FriendRelationMapper.toStatusResponse(firstUser, secondUser, FriendRelationStatus.NO_RELATION,
                 "Связь между пользователями " + firstUser.getName() + " и " + secondUser.getName() + " отсутствует");
     }
 
@@ -256,20 +231,6 @@ public class UserService {
         Set<Long> friendIds = new LinkedHashSet<>(friendshipStorage.findFriendIdsByUserId(userId));
         friendIds.addAll(friendRequestStorage.findRecipientIdsByRequesterId(userId));
         return friendIds;
-    }
-
-    private FriendRelationStatusResponse buildFriendRelationStatusResponse(User firstUser,
-                                                                           User secondUser,
-                                                                           FriendRelationStatus status,
-                                                                           String description) {
-        return FriendRelationStatusResponse.builder()
-                .firstUserId(firstUser.getId())
-                .firstUserName(firstUser.getName())
-                .secondUserId(secondUser.getId())
-                .secondUserName(secondUser.getName())
-                .status(status)
-                .description(description)
-                .build();
     }
 
     private record FriendshipParticipants(User user, User friend) {

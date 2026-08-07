@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.model.Director;
+import ru.yandex.practicum.filmorate.model.DirectorFilmSort;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -75,11 +76,10 @@ public class FilmDirectorDbStorage implements FilmDirectorStorage {
     }
 
     @Override
-    public List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy) {
+    public List<Long> findFilmIdsByDirectorId(Long directorId, DirectorFilmSort sortBy) {
         String orderBy = switch (sortBy) {
-            case "year" -> "f.release_date, f.id";
-            case "likes" -> "COUNT(fl.user_id) DESC, f.id";
-            default -> throw new IllegalArgumentException("Неизвестный тип сортировки: " + sortBy);
+            case YEAR -> "f.release_date, f.id";
+            case LIKES -> "COUNT(fl.user_id) DESC, f.id";
         };
 
         String sql = """

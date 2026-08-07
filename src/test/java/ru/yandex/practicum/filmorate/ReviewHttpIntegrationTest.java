@@ -68,13 +68,13 @@ class ReviewHttpIntegrationTest {
         Film film = filmStorage.add(createFilm("Фильм для проверки реакций"));
         Review review = reviewService.create(createReview(author.getId(), film.getId()));
 
-        reviewService.addLike(review.getReviewId(), reactor.getId());
+        reviewService.saveReaction(review.getReviewId(), reactor.getId(), true);
         ResponseEntity<Void> likeResponse = deleteReaction(review.getReviewId(), "like", reactor.getId());
 
         assertThat(likeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(reviewService.findById(review.getReviewId()).getUseful()).isZero();
 
-        reviewService.addDislike(review.getReviewId(), reactor.getId());
+        reviewService.saveReaction(review.getReviewId(), reactor.getId(), false);
         ResponseEntity<Void> dislikeResponse = deleteReaction(review.getReviewId(), "dislike", reactor.getId());
 
         assertThat(dislikeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);

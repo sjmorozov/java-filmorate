@@ -1,13 +1,9 @@
 package ru.yandex.practicum.filmorate.storage.review;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Review;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,9 +12,8 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.List;
 
-@RequiredArgsConstructor
 @Component
-public class ReviewDbStorage implements ReviewStorage {
+public class ReviewDbStorage extends BaseDbStorage<Review> implements ReviewStorage {
     private static final String USEFULNESS_SQL_EXPRESSION = """
             COALESCE(SUM(CASE
                 WHEN rr.is_like = TRUE THEN 1
@@ -27,7 +22,9 @@ public class ReviewDbStorage implements ReviewStorage {
             END), 0)
             """.strip();
 
-    private final JdbcTemplate jdbcTemplate;
+    public ReviewDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public Review add(Review review) {
@@ -36,9 +33,7 @@ public class ReviewDbStorage implements ReviewStorage {
                 VALUES (?, ?, ?, ?)
                 """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
+        long reviewId = insert(connection -> {
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
             if (review.getContent() == null) {
@@ -66,15 +61,8 @@ public class ReviewDbStorage implements ReviewStorage {
             }
 
             return statement;
-        }, keyHolder);
+        }, "Не удалось получить id созданного ревью");
 
-        Number generatedId = keyHolder.getKey();
-
-        if (generatedId == null) {
-            throw new IllegalStateException("Не удалось получить id созданного ревью");
-        }
-
-        Long reviewId = generatedId.longValue();
         review.setReviewId(reviewId);
 
         review.setUseful(0);
@@ -92,16 +80,13 @@ public class ReviewDbStorage implements ReviewStorage {
 
         Long reviewId = review.getReviewId();
 
-        int rowsAffected = jdbcTemplate.update(
+        updateOrThrow(
                 sql,
+                "Ревью с id = " + reviewId + " не найдено",
                 review.getContent(),
                 review.getIsPositive(),
                 reviewId
         );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Ревью с id = " + reviewId + " не найдено");
-        }
 
         return findById(reviewId);
     }
@@ -113,14 +98,7 @@ public class ReviewDbStorage implements ReviewStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(
-                sql,
-                reviewId
-        );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Ревью с id = " + reviewId + " не найдено");
-        }
+        updateOrThrow(sql, "Ревью с id = " + reviewId + " не найдено", reviewId);
     }
 
     @Override
@@ -138,11 +116,7 @@ public class ReviewDbStorage implements ReviewStorage {
                 GROUP BY r.id
                 """.formatted(USEFULNESS_SQL_EXPRESSION);
 
-        try {
-            return jdbcTemplate.queryForObject(sql, this::mapRowToReview, id);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Ревью с id = " + id + " не найдено");
-        }
+        return queryOne(sql, this::mapRowToReview, "Ревью с id = " + id + " не найдено", id);
     }
 
     @Override
@@ -162,7 +136,7 @@ public class ReviewDbStorage implements ReviewStorage {
             LIMIT ?
             """.formatted(USEFULNESS_SQL_EXPRESSION);
 
-        return jdbcTemplate.query(sql, this::mapRowToReview, filmId, count);
+        return queryMany(sql, this::mapRowToReview, filmId, count);
     }
 
     private Review mapRowToReview(ResultSet rs, int rowNum) throws SQLException {

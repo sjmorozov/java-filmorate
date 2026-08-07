@@ -1,17 +1,12 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -24,10 +19,12 @@ import java.util.Collection;
 import java.util.List;
 
 @Slf4j
-@RequiredArgsConstructor
 @Component
-public class FilmDbStorage implements FilmStorage {
-    private final JdbcTemplate jdbcTemplate;
+public class FilmDbStorage extends BaseDbStorage<Film> implements FilmStorage {
+
+    public FilmDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public Film add(Film film) {
@@ -36,9 +33,7 @@ public class FilmDbStorage implements FilmStorage {
                 VALUES (?, ?, ?, ?, ?)
                 """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
+        long filmId = insert(connection -> {
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, film.getName());
 
@@ -54,15 +49,8 @@ public class FilmDbStorage implements FilmStorage {
             statement.setObject(5, getMpaIdOrNull(film), Types.INTEGER);
 
             return statement;
-        }, keyHolder);
+        }, "Не удалось получить id созданного фильма");
 
-        Number generatedId = keyHolder.getKey();
-
-        if (generatedId == null) {
-            throw new IllegalStateException("Не удалось получить id созданного фильма");
-        }
-
-        Long filmId = generatedId.longValue();
         film.setId(filmId);
 
         return film;
@@ -78,8 +66,9 @@ public class FilmDbStorage implements FilmStorage {
 
         Long filmId = film.getId();
 
-        int rowsAffected = jdbcTemplate.update(
+        updateOrThrow(
                 sql,
+                "Фильм с id = " + filmId + " не найден",
                 film.getName(),
                 film.getDescription(),
                 toSqlDate(film.getReleaseDate()),
@@ -87,10 +76,6 @@ public class FilmDbStorage implements FilmStorage {
                 getMpaIdOrNull(film),
                 filmId
         );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Фильм с id = " + filmId + " не найден");
-        }
 
         return film;
     }
@@ -102,14 +87,7 @@ public class FilmDbStorage implements FilmStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(
-                sql,
-                id
-        );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Фильм с id = " + id + " не найден");
-        }
+        updateOrThrow(sql, "Фильм с id = " + id + " не найден", id);
     }
 
     @Override
@@ -127,11 +105,7 @@ public class FilmDbStorage implements FilmStorage {
                 WHERE f.id = ?
                 """;
 
-        try {
-            return jdbcTemplate.queryForObject(sql, this::mapRowToFilm, id);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Фильм с id = " + id + " не найден");
-        }
+        return queryOne(sql, this::mapRowToFilm, "Фильм с id = " + id + " не найден", id);
     }
 
     @Override
@@ -153,10 +127,9 @@ public class FilmDbStorage implements FilmStorage {
                 WHERE f.id IN (:ids)
                 """;
 
-        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
         MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
 
-        return namedJdbcTemplate.query(sql, parameters, this::mapRowToFilm);
+        return queryMany(sql, parameters, this::mapRowToFilm);
     }
 
     @Override
@@ -174,7 +147,7 @@ public class FilmDbStorage implements FilmStorage {
                 ORDER BY f.id
                 """;
 
-        return jdbcTemplate.query(sql, this::mapRowToFilm);
+        return queryMany(sql, this::mapRowToFilm);
     }
 
     private Date toSqlDate(LocalDate date) {

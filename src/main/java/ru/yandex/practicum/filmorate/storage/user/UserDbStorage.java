@@ -1,13 +1,9 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -19,10 +15,11 @@ import java.time.LocalDate;
 import java.util.Collection;
 
 @Component
-@RequiredArgsConstructor
-public class UserDbStorage implements UserStorage {
+public class UserDbStorage extends BaseDbStorage<User> implements UserStorage {
 
-    private final JdbcTemplate jdbcTemplate;
+    public UserDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public User add(User user) {
@@ -31,9 +28,7 @@ public class UserDbStorage implements UserStorage {
                 VALUES (?, ?, ?, ?)
                 """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
+        long userId = insert(connection -> {
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, user.getEmail());
             statement.setString(2, user.getLogin());
@@ -46,15 +41,9 @@ public class UserDbStorage implements UserStorage {
             }
 
             return statement;
-        }, keyHolder);
+        }, "Не удалось получить id созданного пользователя");
 
-        Number generatedId = keyHolder.getKey();
-
-        if (generatedId == null) {
-            throw new IllegalStateException("Не удалось получить id созданного пользователя");
-        }
-
-        user.setId(generatedId.longValue());
+        user.setId(userId);
         return user;
     }
 
@@ -66,18 +55,15 @@ public class UserDbStorage implements UserStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(
+        updateOrThrow(
                 sql,
+                "Пользователь с id = " + user.getId() + " не найден",
                 user.getEmail(),
                 user.getLogin(),
                 user.getName(),
                 toSqlDate(user.getBirthday()),
                 user.getId()
         );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
-        }
 
         return user;
     }
@@ -89,14 +75,7 @@ public class UserDbStorage implements UserStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(
-                sql,
-                id
-        );
-
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Пользователь с id = " + id + " не найден");
-        }
+        updateOrThrow(sql, "Пользователь с id = " + id + " не найден", id);
     }
 
     @Override
@@ -107,11 +86,7 @@ public class UserDbStorage implements UserStorage {
                 WHERE id = ?
                 """;
 
-        try {
-            return jdbcTemplate.queryForObject(sql, this::mapRowToUser, id);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Пользователь с id = " + id + " не найден");
-        }
+        return queryOne(sql, this::mapRowToUser, "Пользователь с id = " + id + " не найден", id);
     }
 
     @Override
@@ -121,7 +96,7 @@ public class UserDbStorage implements UserStorage {
                 FROM users
                 """;
 
-        return jdbcTemplate.query(sql, this::mapRowToUser);
+        return queryMany(sql, this::mapRowToUser);
     }
 
     private Date toSqlDate(LocalDate date) {

@@ -9,7 +9,6 @@ import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -28,9 +27,6 @@ class UserControllerMvcTest {
 
     @MockitoBean
     private FilmService filmService;
-
-    @MockitoBean
-    private EventStorage eventStorage;
 
     /**
      * DELETE /users/{id} должен возвращать 204 No Content — это HTTP-контракт из @ResponseStatus,

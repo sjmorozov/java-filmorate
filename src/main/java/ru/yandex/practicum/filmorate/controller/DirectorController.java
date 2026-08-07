@@ -1,8 +1,10 @@
 package ru.yandex.practicum.filmorate.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,12 +16,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.service.DirectorService;
+import ru.yandex.practicum.filmorate.validation.OnUpdate;
 
 import java.util.Collection;
 
 @RestController
 @RequestMapping("/directors")
 @RequiredArgsConstructor
+@Validated
 public class DirectorController {
     private final DirectorService directorService;
 
@@ -29,7 +33,8 @@ public class DirectorController {
     }
 
     @GetMapping("/{id}")
-    public Director findById(@PathVariable Long id) {
+    public Director findById(@PathVariable
+                             @Positive(message = "Id режиссёра должен быть положительным") Long id) {
         return directorService.findById(id);
     }
 
@@ -39,13 +44,14 @@ public class DirectorController {
     }
 
     @PutMapping
-    public Director update(@Valid @RequestBody Director director) {
+    public Director update(@Validated(OnUpdate.class) @RequestBody Director director) {
         return directorService.update(director);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    public void delete(@PathVariable
+                       @Positive(message = "Id режиссёра должен быть положительным") Long id) {
         directorService.delete(id);
     }
 }

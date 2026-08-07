@@ -40,7 +40,7 @@ public class UserControllerTest {
 
         FilmService filmService = mock(FilmService.class);
 
-        userController = new UserController(userService, filmService, eventStorage);
+        userController = new UserController(userService, filmService);
     }
 
     private User createValidUser() {

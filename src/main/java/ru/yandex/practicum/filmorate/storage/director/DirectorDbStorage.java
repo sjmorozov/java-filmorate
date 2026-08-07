@@ -1,15 +1,10 @@
 package ru.yandex.practicum.filmorate.storage.director;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Director;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -20,9 +15,11 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Component
-@RequiredArgsConstructor
-public class DirectorDbStorage implements DirectorStorage {
-    private final JdbcTemplate jdbcTemplate;
+public class DirectorDbStorage extends BaseDbStorage<Director> implements DirectorStorage {
+
+    public DirectorDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public Director add(Director director) {
@@ -31,20 +28,13 @@ public class DirectorDbStorage implements DirectorStorage {
                 VALUES (?)
                 """;
 
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        jdbcTemplate.update(connection -> {
+        long directorId = insert(connection -> {
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, director.getName());
             return statement;
-        }, keyHolder);
+        }, "Не удалось получить id созданного режиссёра");
 
-        Number generatedId = keyHolder.getKey();
-        if (generatedId == null) {
-            throw new IllegalStateException("Не удалось получить id созданного режиссёра");
-        }
-
-        director.setId(generatedId.longValue());
+        director.setId(directorId);
         return director;
     }
 
@@ -56,10 +46,9 @@ public class DirectorDbStorage implements DirectorStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(sql, director.getName(), director.getId());
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Режиссёр с id = " + director.getId() + " не найден");
-        }
+        updateOrThrow(sql,
+                "Режиссёр с id = " + director.getId() + " не найден",
+                director.getName(), director.getId());
 
         return director;
     }
@@ -71,10 +60,7 @@ public class DirectorDbStorage implements DirectorStorage {
                 WHERE id = ?
                 """;
 
-        int rowsAffected = jdbcTemplate.update(sql, id);
-        if (rowsAffected == 0) {
-            throw new NotFoundException("Режиссёр с id = " + id + " не найден");
-        }
+        updateOrThrow(sql, "Режиссёр с id = " + id + " не найден", id);
     }
 
     @Override
@@ -85,11 +71,7 @@ public class DirectorDbStorage implements DirectorStorage {
                 WHERE id = ?
                 """;
 
-        try {
-            return jdbcTemplate.queryForObject(sql, this::mapRowToDirector, id);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Режиссёр с id = " + id + " не найден");
-        }
+        return queryOne(sql, this::mapRowToDirector, "Режиссёр с id = " + id + " не найден", id);
     }
 
     @Override
@@ -105,10 +87,9 @@ public class DirectorDbStorage implements DirectorStorage {
                 ORDER BY id
                 """;
 
-        NamedParameterJdbcTemplate namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
         MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
 
-        return new LinkedHashSet<>(namedJdbcTemplate.query(sql, parameters, this::mapRowToDirector));
+        return new LinkedHashSet<>(queryMany(sql, parameters, this::mapRowToDirector));
     }
 
     @Override
@@ -119,7 +100,7 @@ public class DirectorDbStorage implements DirectorStorage {
                 ORDER BY id
                 """;
 
-        return jdbcTemplate.query(sql, this::mapRowToDirector);
+        return queryMany(sql, this::mapRowToDirector);
     }
 
     private Director mapRowToDirector(ResultSet rs, int rowNum) throws SQLException {

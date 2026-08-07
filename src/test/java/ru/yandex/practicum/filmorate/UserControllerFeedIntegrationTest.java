@@ -61,4 +61,11 @@ class UserControllerFeedIntegrationTest {
                 .andExpect(jsonPath("$[1].operation").value("ADD"))
                 .andExpect(jsonPath("$[1].entityId").value(f1.getId()));
     }
+
+    @Test
+    void getFeed_whenUserNotFound_shouldReturnNotFound() throws Exception {
+        mockMvc.perform(get("/users/{id}/feed", 999L)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
 }

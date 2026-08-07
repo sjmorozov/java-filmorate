@@ -11,7 +11,6 @@ import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,7 +24,6 @@ public class UserController {
 
     private final UserService userService;
     private final FilmService filmService;
-    private final EventStorage eventStorage;
 
     @PostMapping
     public User create(@Valid @RequestBody User user) {
@@ -82,13 +80,11 @@ public class UserController {
 
     @GetMapping("/{id}/recommendations")
     public Collection<Film> getRecommendations(@PathVariable Long id) {
-        userService.findById(id);
         return filmService.getRecommendations(id);
     }
 
     @GetMapping("/{id}/feed")
     public List<Event> getFeed(@PathVariable Long id) {
-        userService.findById(id); // Проверка, что пользователь существует
-        return eventStorage.getEventsByUserId(id);
+        return userService.getFeed(id);
     }
 }

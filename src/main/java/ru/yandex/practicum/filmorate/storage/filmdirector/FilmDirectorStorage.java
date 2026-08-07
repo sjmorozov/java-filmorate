@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.storage.filmdirector;
 
 import ru.yandex.practicum.filmorate.model.Director;
+import ru.yandex.practicum.filmorate.model.DirectorFilmSort;
 
 import java.util.Collection;
 import java.util.List;
@@ -14,5 +15,5 @@ public interface FilmDirectorStorage {
 
     Map<Long, Set<Director>> findByFilmIds(Collection<Long> filmIds);
 
-    List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy);
+    List<Long> findFilmIdsByDirectorId(Long directorId, DirectorFilmSort sortBy);
 }

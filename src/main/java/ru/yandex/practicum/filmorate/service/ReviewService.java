@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.model.Event;
+import ru.yandex.practicum.filmorate.mapper.EventMapper;
 import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
@@ -36,13 +36,8 @@ public class ReviewService {
 
         Review createdReview = reviewStorage.add(review);
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(review.getUserId())
-                .eventType(EventType.REVIEW)
-                .operation(Operation.ADD)
-                .entityId(createdReview.getReviewId())
-                .build());
+        eventStorage.save(EventMapper.toEvent(
+                review.getUserId(), EventType.REVIEW, Operation.ADD, createdReview.getReviewId()));
 
         log.info("Ревью добавлено: reviewId={}, userId={}", createdReview.getReviewId(), createdReview.getUserId());
         return createdReview;
@@ -70,13 +65,8 @@ public class ReviewService {
 
         Review updatedReview = reviewStorage.update(oldReview);
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(updatedReview.getUserId())
-                .eventType(EventType.REVIEW)
-                .operation(Operation.UPDATE)
-                .entityId(updatedReview.getReviewId())
-                .build());
+        eventStorage.save(EventMapper.toEvent(
+                updatedReview.getUserId(), EventType.REVIEW, Operation.UPDATE, updatedReview.getReviewId()));
 
         log.info("Ревью обновлено: reviewId={}, userId={}", updatedReview.getReviewId(), updatedReview.getUserId());
         return updatedReview;
@@ -85,13 +75,8 @@ public class ReviewService {
     public void delete(Long reviewId) {
         Review review = reviewStorage.findById(reviewId);
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(review.getUserId())
-                .eventType(EventType.REVIEW)
-                .operation(Operation.REMOVE)
-                .entityId(reviewId)
-                .build());
+        eventStorage.save(EventMapper.toEvent(
+                review.getUserId(), EventType.REVIEW, Operation.REMOVE, reviewId));
 
         reviewStorage.delete(reviewId);
         log.info("Ревью с id = {} удалено", reviewId);
@@ -108,35 +93,23 @@ public class ReviewService {
         return reviewStorage.findMostUseful(filmId, count);
     }
 
-    public void addLike(Long reviewId, Long userId) {
-        saveReaction(reviewId, userId, true);
-        log.info("Пользователь с id = {} добавил лайк ревью с id = {}", userId, reviewId);
-    }
-
-    public void addDislike(Long reviewId, Long userId) {
-        saveReaction(reviewId, userId, false);
-        log.info("Пользователь с id = {} добавил дизлайк ревью с id = {}", userId, reviewId);
-    }
-
-    public void deleteLike(Long reviewId, Long userId) {
-        deleteReaction(reviewId, userId, true);
-        log.info("Пользователь с id = {} удалил лайк ревью с id = {}", userId, reviewId);
-    }
-
-    public void deleteDislike(Long reviewId, Long userId) {
-        deleteReaction(reviewId, userId, false);
-        log.info("Пользователь с id = {} удалил дизлайк ревью с id = {}", userId, reviewId);
-    }
-
-    private void saveReaction(Long reviewId, Long userId, boolean isLike) {
+    public void saveReaction(Long reviewId, Long userId, boolean isLike) {
         reviewStorage.findById(reviewId);
         userStorage.findById(userId);
         reviewReactionStorage.save(reviewId, userId, isLike);
+        log.info("Пользователь с id = {} добавил {} ревью с id = {}",
+                userId, getReactionName(isLike), reviewId);
     }
 
-    private void deleteReaction(Long reviewId, Long userId, boolean isLike) {
+    public void deleteReaction(Long reviewId, Long userId, boolean isLike) {
         reviewStorage.findById(reviewId);
         userStorage.findById(userId);
         reviewReactionStorage.delete(reviewId, userId, isLike);
+        log.info("Пользователь с id = {} удалил {} ревью с id = {}",
+                userId, getReactionName(isLike), reviewId);
+    }
+
+    private String getReactionName(boolean isLike) {
+        return isLike ? "лайк" : "дизлайк";
     }
 }

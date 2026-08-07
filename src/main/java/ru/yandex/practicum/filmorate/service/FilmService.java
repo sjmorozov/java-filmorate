@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.mapper.EventMapper;
 import ru.yandex.practicum.filmorate.model.*;
 import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
 import ru.yandex.practicum.filmorate.storage.event.EventStorage;
@@ -28,8 +29,6 @@ import java.util.stream.Collectors;
 public class FilmService {
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final int MAX_DESCRIPTION_LENGTH = 200;
-    private static final String SORT_BY_YEAR = "year";
-    private static final String SORT_BY_LIKES = "likes";
     private static final String SEARCH_BY_TITLE = "title";
     private static final String SEARCH_BY_DIRECTOR = "director";
 
@@ -146,13 +145,7 @@ public class FilmService {
 
         filmLikeStorage.add(film.getId(), user.getId());
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(userId)
-                .eventType(EventType.LIKE)
-                .operation(Operation.ADD)
-                .entityId(filmId)
-                .build());
+        eventStorage.save(EventMapper.toEvent(userId, EventType.LIKE, Operation.ADD, filmId));
 
         log.info("Пользователь {} поставил лайк фильму {}", user.getName(), film.getName());
     }
@@ -163,13 +156,7 @@ public class FilmService {
 
         filmLikeStorage.delete(film.getId(), user.getId());
 
-        eventStorage.save(Event.builder()
-                .timestamp(System.currentTimeMillis())
-                .userId(userId)
-                .eventType(EventType.LIKE)
-                .operation(Operation.REMOVE)
-                .entityId(filmId)
-                .build());
+        eventStorage.save(EventMapper.toEvent(userId, EventType.LIKE, Operation.REMOVE, filmId));
 
         log.info("Пользователь {} убрал лайк с фильма {}", user.getName(), film.getName());
     }
@@ -199,8 +186,7 @@ public class FilmService {
         return popularFilms;
     }
 
-    public Collection<Film> findByDirector(Long directorId, String sortBy) {
-        validateDirectorFilmSort(sortBy);
+    public Collection<Film> findByDirector(Long directorId, DirectorFilmSort sortBy) {
         directorStorage.findById(directorId);
 
         List<Long> filmIds = filmDirectorStorage.findFilmIdsByDirectorId(directorId, sortBy);
@@ -274,12 +260,6 @@ public class FilmService {
         return false;
     }
 
-    private void validateDirectorFilmSort(String sortBy) {
-        if (!SORT_BY_YEAR.equals(sortBy) && !SORT_BY_LIKES.equals(sortBy)) {
-            throw new ValidationException("Параметр sortBy должен иметь значение year или likes");
-        }
-    }
-
     private boolean resolveDirectors(Film film) {
         if (film.getDirectors() != null) {
             LinkedHashSet<Long> directorIds = film.getDirectors().stream()
@@ -351,6 +331,8 @@ public class FilmService {
     }
 
     public Collection<Film> getRecommendations(Long userId) {
+        userStorage.findById(userId);
+
         Set<Long> userLikedFilmIds = filmLikeStorage.findFilmIdsByUserId(userId);
 
         if (userLikedFilmIds.isEmpty()) {

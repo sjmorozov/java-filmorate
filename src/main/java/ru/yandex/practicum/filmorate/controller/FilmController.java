@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.yandex.practicum.filmorate.model.DirectorFilmSort;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.service.FilmService;
 
@@ -67,8 +68,9 @@ public class FilmController {
     }
 
     @GetMapping("/director/{directorId}")
-    public Collection<Film> findByDirector(@PathVariable Long directorId,
-                                           @RequestParam(required = false) String sortBy) {
+    public Collection<Film> findByDirector(@PathVariable
+                                           @Positive(message = "Id режиссёра должен быть положительным") Long directorId,
+                                           @RequestParam DirectorFilmSort sortBy) {
         return filmService.findByDirector(directorId, sortBy);
     }
 

@@ -13,12 +13,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Review {
-    private static final int MAX_CONTENT_LENGTH = 10_000;
-
     private Long reviewId;
 
     @NotBlank(message = "Отзыв не может быть пустым")
-    @Size(max = MAX_CONTENT_LENGTH, message = "Максимальная длина ревью — 10 000 символов")
+    @Size(max = 10_000, message = "Максимальная длина ревью — 10 000 символов")
     private String content;
 
     @NotNull

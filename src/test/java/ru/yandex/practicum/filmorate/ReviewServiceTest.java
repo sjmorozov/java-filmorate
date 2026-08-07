@@ -144,16 +144,16 @@ class ReviewServiceTest {
                 createReview(author.getId(), film.getId(), "Отзыв для оценки", true)
         );
 
-        reviewService.addLike(review.getReviewId(), reactor.getId());
+        reviewService.saveReaction(review.getReviewId(), reactor.getId(), true);
         assertThat(reviewService.findById(review.getReviewId()).getUseful()).isEqualTo(1);
 
-        reviewService.deleteLike(review.getReviewId(), reactor.getId());
+        reviewService.deleteReaction(review.getReviewId(), reactor.getId(), true);
         assertThat(reviewService.findById(review.getReviewId()).getUseful()).isZero();
 
-        reviewService.addDislike(review.getReviewId(), reactor.getId());
+        reviewService.saveReaction(review.getReviewId(), reactor.getId(), false);
         assertThat(reviewService.findById(review.getReviewId()).getUseful()).isEqualTo(-1);
 
-        reviewService.deleteDislike(review.getReviewId(), reactor.getId());
+        reviewService.deleteReaction(review.getReviewId(), reactor.getId(), false);
         assertThat(reviewService.findById(review.getReviewId()).getUseful()).isZero();
     }
 

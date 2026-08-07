@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate;
 
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Director;
+import ru.yandex.practicum.filmorate.model.DirectorFilmSort;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.MpaRating;
@@ -237,7 +238,7 @@ final class TestFilmServiceFactory {
         }
 
         @Override
-        public List<Long> findFilmIdsByDirectorId(Long directorId, String sortBy) {
+        public List<Long> findFilmIdsByDirectorId(Long directorId, DirectorFilmSort sortBy) {
             return directorsByFilmId.entrySet().stream()
                     .filter(entry -> entry.getValue().stream()
                             .anyMatch(director -> director.getId().equals(directorId)))
