@@ -1,7 +1,7 @@
 # java-filmorate
 
-Filmorate — учебное приложение на Spring Boot для работы с фильмами, пользователями, лайками, жанрами,
-возрастными рейтингами MPA и дружбой между пользователями.
+Filmorate — учебное приложение на Spring Boot для работы с фильмами, пользователями, лайками, отзывами,
+режиссёрами, жанрами, рейтингами MPA и дружбой между пользователями.
 
 На этом этапе приложение переведено с хранения данных в памяти на H2. В рабочем режиме данные сохраняются в файл,
 поэтому фильмы, пользователи, лайки и связи не пропадают после перезапуска приложения. Для тестов используется
@@ -15,7 +15,13 @@ Filmorate — учебное приложение на Spring Boot для раб
 - получение жанров через `GET /genres` и `GET /genres/{id}`;
 - получение рейтингов MPA через `GET /mpa` и `GET /mpa/{id}`;
 - сохранение и получение MPA и жанров у фильмов;
-- лайки фильмов и получение популярных фильмов;
+- лайки фильмов и получение популярных фильмов с фильтрацией по жанру и году релиза;
+- поиск фильмов по названию и режиссёру;
+- режиссёры и сортировка их фильмов по году выпуска или количеству лайков;
+- отзывы на фильмы с оценками полезности;
+- рекомендации и общие фильмы для пользователей;
+- лента событий пользователя;
+- удаление фильмов и пользователей;
 - однонаправленное добавление в друзья для публичного API;
 - расширенная внутренняя модель заявок и подтверждённой дружбы;
 - интеграционные тесты DAO на `@JdbcTest` и `@AutoConfigureTestDatabase`;
@@ -83,6 +89,11 @@ Password: password
 - `mpa_ratings` — справочник рейтингов MPA;
 - `film_genres` — связь фильмов и жанров;
 - `film_likes` — лайки фильмов пользователями;
+- `directors` — режиссёры;
+- `film_directors` — связь фильмов и режиссёров;
+- `reviews` — отзывы на фильмы;
+- `review_reactions` — оценки полезности отзывов;
+- `events` — события пользователей;
 - `friend_requests` — однонаправленные заявки в друзья;
 - `friendships` — подтверждённая дружба.
 
@@ -158,6 +169,8 @@ DELETE /users/{id}/friends/{friendId}
 GET    /users/{id}/friends
 GET    /users/{id}/friends/common/{otherId}
 GET    /users/{id}/friends/{friendId}/status
+GET    /users/{id}/recommendations
+GET    /users/{id}/feed
 ```
 
 ### Фильмы
@@ -170,7 +183,34 @@ GET    /films
 GET    /films/{id}
 PUT    /films/{id}/like/{userId}
 DELETE /films/{id}/like/{userId}
-GET    /films/popular?count=10
+GET    /films/popular?count=10&genreId={genreId}&year={year}
+GET    /films/director/{directorId}?sortBy={year|likes}
+GET    /films/common?userId={userId}&friendId={friendId}
+GET    /films/search?query={query}&by={director,title}
+```
+
+### Режиссёры
+
+```http
+POST   /directors
+PUT    /directors
+DELETE /directors/{id}
+GET    /directors
+GET    /directors/{id}
+```
+
+### Отзывы
+
+```http
+POST   /reviews
+PUT    /reviews
+DELETE /reviews/{id}
+GET    /reviews/{id}
+GET    /reviews?filmId={filmId}&count=10
+PUT    /reviews/{id}/like/{userId}
+PUT    /reviews/{id}/dislike/{userId}
+DELETE /reviews/{id}/like/{userId}
+DELETE /reviews/{id}/dislike/{userId}
 ```
 
 ### Жанры
@@ -189,7 +229,7 @@ GET /mpa/{id}
 
 ## Пример фильма
 
-При создании и обновлении фильма жанры и рейтинг передаются объектами с идентификаторами:
+При создании и обновлении фильма жанры, рейтинг и режиссёры передаются объектами с идентификаторами:
 
 ```json
 {
@@ -207,11 +247,16 @@ GET /mpa/{id}
     {
       "id": 6
     }
+  ],
+  "directors": [
+    {
+      "id": 1
+    }
   ]
 }
 ```
 
-В ответе приложение возвращает фильм уже с заполненными названиями рейтинга и жанров.
+В ответе приложение возвращает фильм с названиями рейтинга, жанров и режиссёров.
 
 ## Запуск и проверка
 

@@ -1,20 +1,20 @@
 package ru.yandex.practicum.filmorate.storage.mparating;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 
 @Component
-@RequiredArgsConstructor
-public class MpaRatingDbStorage implements MpaRatingStorage {
-    private final JdbcTemplate jdbcTemplate;
+public class MpaRatingDbStorage extends BaseDbStorage<MpaRating> implements MpaRatingStorage {
+
+    public MpaRatingDbStorage(JdbcTemplate jdbcTemplate) {
+        super(jdbcTemplate);
+    }
 
     @Override
     public MpaRating findById(Integer id) {
@@ -24,11 +24,7 @@ public class MpaRatingDbStorage implements MpaRatingStorage {
                 WHERE id = ?
                 """;
 
-        try {
-            return jdbcTemplate.queryForObject(sql, this::mapRowToMpa, id);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Рейтинг с id = " + id + " не найден");
-        }
+        return queryOne(sql, this::mapRowToMpa, "Рейтинг с id = " + id + " не найден", id);
     }
 
     @Override
@@ -39,7 +35,7 @@ public class MpaRatingDbStorage implements MpaRatingStorage {
                 ORDER BY id
                 """;
 
-        return jdbcTemplate.query(sql, this::mapRowToMpa);
+        return queryMany(sql, this::mapRowToMpa);
     }
 
     private MpaRating mapRowToMpa(ResultSet rs, int rowNum) throws SQLException {

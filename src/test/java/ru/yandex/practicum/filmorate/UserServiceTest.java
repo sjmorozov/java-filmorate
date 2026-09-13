@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.model.FriendRelationStatus;
 import ru.yandex.practicum.filmorate.model.FriendRelationStatusResponse;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.FriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendrequest.InMemoryFriendRequestStorage;
 import ru.yandex.practicum.filmorate.storage.friendship.FriendshipStorage;
@@ -20,6 +21,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 public class UserServiceTest {
     private UserService userService;
@@ -49,7 +51,9 @@ public class UserServiceTest {
         UserStorage userStorage = new InMemoryUserStorage();
         FriendRequestStorage friendRequestStorage = new InMemoryFriendRequestStorage();
         FriendshipStorage friendshipStorage = new InMemoryFriendshipStorage();
-        userService = new UserService(userStorage, friendRequestStorage, friendshipStorage);
+        EventStorage eventStorage = mock(EventStorage.class);
+
+        userService = new UserService(userStorage, friendRequestStorage, friendshipStorage, eventStorage);
     }
 
     private User create(String email, String login, String name, LocalDate birthday) {
@@ -450,9 +454,9 @@ public class UserServiceTest {
         Set<User> resultFriends = userService.findFriends(firstCreatedUser.getId());
 
         assertThat(resultFriends)
-                .as("Список друзей должен состоять ровно из пользователей с ID второго и третьего")
+                .as("Список друзей должен быть отсортирован по ID")
                 .extracting(User::getId)
-                .containsExactlyInAnyOrder(secondCreatedUser.getId(), thirdCreatedUser.getId());
+                .containsExactly(secondCreatedUser.getId(), thirdCreatedUser.getId());
     }
 
     @Test
@@ -515,6 +519,17 @@ public class UserServiceTest {
     }
 
     @Test
+    void shouldThrowNotFoundExceptionWhenFriendIdIsNegative() {
+        User firstCreatedUser = saveUser(createValidUser());
+        Long userId = firstCreatedUser.getId();
+        Long negativeFriendId = -1L;
+
+        assertThatThrownBy(() -> userService.addFriend(userId, negativeFriendId))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(userNotFoundMessage(negativeFriendId));
+    }
+
+    @Test
     void shouldThrowNotFoundExceptionWhenUserForRemoveFriendDoesNotExist() {
         User firstCreatedUser = saveUser(createValidUser());
         Long existingFriendId = firstCreatedUser.getId();
@@ -544,6 +559,16 @@ public class UserServiceTest {
         assertThatThrownBy(() -> userService.findById(userId))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(userNotFoundMessage(userId));
+    }
+
+    /**
+     * Удаление несуществующего пользователя должно кидать NotFoundException, а не проходить молча.
+     */
+    @Test
+    void shouldThrowNotFoundExceptionWhenDeleteUserDoesNotExist() {
+        assertThatThrownBy(() -> userService.delete(NON_EXISTENT_USER_ID))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(userNotFoundMessage(NON_EXISTENT_USER_ID));
     }
 
     @Test
