@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.BaseDbStorage;
@@ -13,6 +14,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 
 @Component
 public class UserDbStorage extends BaseDbStorage<User> implements UserStorage {
@@ -87,6 +89,23 @@ public class UserDbStorage extends BaseDbStorage<User> implements UserStorage {
                 """;
 
         return queryOne(sql, this::mapRowToUser, "Пользователь с id = " + id + " не найден", id);
+    }
+
+    @Override
+    public Collection<User> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        String sql = """
+                SELECT id, email, login, name, birthday
+                FROM users
+                WHERE id IN (:ids)
+                """;
+
+        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+
+        return queryMany(sql, parameters, this::mapRowToUser);
     }
 
     @Override

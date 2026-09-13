@@ -6,7 +6,9 @@ import ru.yandex.practicum.filmorate.model.User;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 public class InMemoryUserStorage implements UserStorage {
@@ -36,6 +38,18 @@ public class InMemoryUserStorage implements UserStorage {
     public User findById(Long id) {
         checkUserExists(id);
         return users.get(id);
+    }
+
+    @Override
+    public Collection<User> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        return ids.stream()
+                .map(users::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Override
