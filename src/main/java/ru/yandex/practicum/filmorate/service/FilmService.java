@@ -179,6 +179,7 @@ public class FilmService {
                 .collect(Collectors.toMap(Film::getId, Function.identity()));
         List<Film> popularFilms = popularFilmIds.stream()
                 .map(filmsById::get)
+                .filter(Objects::nonNull)
                 .toList();
 
         loadFilmRelations(popularFilms);

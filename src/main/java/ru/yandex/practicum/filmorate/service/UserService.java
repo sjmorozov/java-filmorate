@@ -15,7 +15,10 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -219,9 +222,17 @@ public class UserService {
     }
 
     private Set<User> getFriendsByIds(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+
+        Map<Long, User> usersById = userStorage.findByIds(ids).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
         return ids.stream()
                 .sorted()
-                .map(userStorage::findById)
+                .map(usersById::get)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 

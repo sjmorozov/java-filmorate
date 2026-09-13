@@ -96,6 +96,16 @@ class DbStorageIntegrationTest {
     }
 
     @Test
+    void userStorageShouldFindUsersByIds() {
+        User firstUser = userStorage.add(createUser("neo"));
+        User secondUser = userStorage.add(createUser("morpheus"));
+
+        assertThat(userStorage.findByIds(List.of(firstUser.getId(), secondUser.getId())))
+                .extracting(User::getId)
+                .containsExactlyInAnyOrder(firstUser.getId(), secondUser.getId());
+    }
+
+    @Test
     void userStorageShouldDeleteRelatedFriendshipsAndRequestsByCascade() {
         User firstUser = userStorage.add(createUser("neo"));
         User secondUser = userStorage.add(createUser("morpheus"));
